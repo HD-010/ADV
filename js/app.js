@@ -1820,5 +1820,15 @@ function arrNotempty(array){
     })(jQuery);
 
     /** ===============================md5 end============================== */
+	
+	if(typeof Object.values == 'undefined'){
+		Object.prototype.values = function(o){
+			var tempVal = [];
+			for(var i in o){
+				if(typeof o[i] != 'function') tempVal.push(o[i]);
+			}
+			return tempVal;
+		}
+	}
 
     

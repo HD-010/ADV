@@ -1,8 +1,41 @@
 /**
- * 通用配置
+ * 配置文件
  */
 var conf = {
-	host: "http://192.168.0.100:3005"
+	httpHost: "http://192.168.0.114:3005",
+	wsHost: "ws://192.168.0.114:3005",
+}
+
+/**
+ * 系统服务
+ */
+var server = {
+	host: conf.httpHost,
+	initTimes: 0,			//系统初始化次数
+	status: 0,				//系统状态 0 没有运行 1 正常运行
+	init: function(data){
+		server.initTimes ++;
+		app.notice({error:1, message:"正在进行第"+server.initTimes+"次初始化服务..."});
+		DL({
+			uri: server.host + '/api/device/reg',
+			data: data,
+			befor: function(me) {
+				server.status = 1;
+				//console.log(JSON.stringify(me.results));
+				var res = me.results;
+				if (res.error) return;
+				//将客户端id储存起来
+				setItem('unid', res.data.id);
+				//eval("(process = " + res.data.process + ")");
+				//初始化webSocket
+				ws.initWs();
+				me.exit();
+			},
+			error: function(){
+				if(!server.status) server.init(data);
+			}
+		});
+	}
 }
 
 /**
@@ -10,7 +43,7 @@ var conf = {
  */
 var ws = {
 	state: false,
-	host: 'ws://192.168.0.100:3005',
+	host: conf.wsHost,
 	protocol: 'echo-protocol',
 	connection: null,
 	rebuildTime: 60000,		//得建ws连接时间
@@ -115,10 +148,59 @@ var player = {
 		player.self.addEventListener('play', function() {
 			//updatePlaying(true);
 		}, false);
+		
 		//监听暂停事件
 		player.self.addEventListener('pause', function() {
 			//updatePlaying(false);
-		}, false)
+		}, false);
+		
+		/**
+		 * 视频播放进度更新事件
+		 * @param {Object} o
+		 * 当视频播放进度变化时触发，触发频率250ms一次。 
+		 * 事件回调函数参数event.detail = {
+				 currentTime:"Number类型，当前播放时间（单位为秒）",
+				 duration:"Number类型，视频总长度（单位为秒）"
+			}。
+		 */
+		player.self.addEventListener("timeupdate", function(e){
+			return;
+			e.eventType = "timeupdate";
+			ws.send({
+				action:'/api/device/ent',
+				unid: getItem('unid'),
+				data: e
+			});
+		});
+		
+		/**
+		 * 视频缓冲事件
+		 * (String 类型 )当视频播放出现缓冲时触发。 无事件回调函数参数。
+		 */
+		player.self.addEventListener("waiting", function(e){
+			return;
+			e.eventType = "waiting";
+			ws.send({
+				action:'/api/device/ent',
+				unid: getItem('unid'),
+				data: e
+			});
+		});
+		
+		/**
+		 * 视频错误事件
+		 * (String 类型 )当视频播放出错时触发。 无事件回调函数参数。
+		 */
+		player.self.addEventListener("error", function(e){
+			return;
+			e.eventType = "error";
+			ws.send({
+				action:'/api/device/ent',
+				unid: getItem('unid'),
+				data: e
+			});
+		});
+		
 		return player;
 	}
 }
@@ -193,7 +275,7 @@ function notice(){
 	this.lists ={};
 	//节目序号
 	this.num = 0;
-
+	
 	this.play = function(){
 		var obj = this.lists;
 		//视频播放列表
@@ -228,7 +310,7 @@ function video(){
 		var obj = this.lists;
 		var url = obj.list[this.num].url;
 		if (url && url.length > 0) {
-			if (!url.match(/(http:)|(https:)/)) url = conf.host + url;
+			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 			player.self.setOptions({
 				src: url
 			});
@@ -259,7 +341,7 @@ function img(){
 		//视频播放列表
 		var url = obj.list[this.num].url;
 		if (url && url.length > 0) {
-			if (!url.match(/(http:)|(https:)/)) url = conf.host + url;
+			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 			$('[data-tag=' + obj.taskTag + ']').find('img').attr('src',url);
 		}
 		setTimeout(function(){
@@ -279,7 +361,6 @@ function img(){
  */ 
 function plusReady() {
 	//创建服务器连接
-
 	//流程:客户端启动完成->拿客户端标识到服务端注册->服务器返回注册完成后的客户端对应的数据表id号->
 	//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
 	//在任务执行节点处将执行结果反馈webSocket服务器->webSocket服务将信息体现在设备状态列表
@@ -290,23 +371,7 @@ function plusReady() {
 		device_uuid: plus.device.uuid
 	};
 	data.device_sn = $.md5(Object.values(data).join(''));
-	
-	DL({
-		uri: conf.host + '/api/device/reg',
-		data: data,
-		befor: function(me) {
-			//console.log(JSON.stringify(me.results));
-			var res = me.results;
-			if (res.error) return;
-			//将客户端id储存起来
-			setItem('unid', res.data.id);
-			//eval("(process = " + res.data.process + ")");
-			//初始化webSocket
-			ws.initWs();
-			me.exit();
-		}
-	});
-
+	server.init(data);
 }
 
 
