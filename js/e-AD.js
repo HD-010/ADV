@@ -2,9 +2,18 @@
  * 配置文件
  */
 var conf = {
-	httpHost: "http://192.168.0.100:3005",
-	wsHost: "ws://192.168.0.100:3005",
-	promotionalPath:"_www/video/company/promotional/01.mp4"		//宣传片路径
+	httpHost: "http://192.168.0.114:3005",
+	wsHost: "ws://192.168.0.114:3005",
+	promotionalPath: "_www/video/company/promotional/01.mp4", //宣传片路径
+	downloadOption: {
+		method: 'GET',
+		data: '',
+		filename: "_downloads/",
+		priority: 0,
+		timeout: 120,
+		retry: 59,
+		retryInterval: 30
+	}
 }
 
 /**
@@ -36,9 +45,22 @@ var server = {
 				me.exit();
 			},
 			error: function() {
-				if (!server.status) server.init(data);
+				try{
+					//具备离线播放条件，而且与服务器连接失败的情况下转为离线播放
+					if(getItem('unid') && getItem("task_list")) return process.task_list();
+					//不具备离线播放条件，则无限尝试与服务器连接获取数据
+					if (!server.status) server.init(data);
+				}catch(e){}
 			}
 		});
+	},
+	
+	localUrl: function(url){
+		var localUrl = url.split('/');
+		for (var i = 0; i < 3; i++) {
+			localUrl.shift();
+		}
+		return localUrl.join('/');
 	}
 }
 
@@ -147,6 +169,44 @@ var views = {
 		$("#contents").html(views.blackmodel)
 	}
 }
+
+/**
+ * 文件下载器
+ */
+var download = {
+	task: [],
+	// 创建下载任务
+	init: function(params) {
+		var task = plus.downloader.createDownload(params.url, params.option);
+		task.addEventListener("statechanged", download.stateChanged, false);
+		task.start();
+		download.task.push(task)
+	},
+	// 监听下载任务状态
+	stateChanged: function(download, status) {
+		if (download.state == 4 && status == 200) {
+			// 下载完成 
+			console.log("Download success: " + download.getFileName());
+		}
+	},
+	// 暂停下载任务 
+	pause: function() {
+		download.task.pause();
+	},
+	// 取消下载任务 
+	abort: function() {
+		download.dtask.abort();
+	},
+	// 恢复下载任务
+	resume: function() {
+		download.dtask.resume();
+	},
+	// 开始所有下载任务
+	startAll: function() {
+		plus.downloader.startAll();
+	}
+}
+
 
 /**
  * 视频播放器控制对象
@@ -351,94 +411,79 @@ function video() {
 	this.num = 0;
 	//播放列表
 	this.play = function() {
-			//视频播放列表
-			var obj = this.lists;
-			var url = obj.list[this.num].url;
-			var entry = null;
-			//如果当前url不存在，直接播放下一首,
-			if (!url || !url.length) {
-				this.num++;
-				if (obj.list.length > this.num) return me.play(obj);
-				//当所有url均为空时，停止video播放
-				player.self.stop();
-			}
-			//如果url不为空，则判断其对应的本地文件是否存在。
-			//如果存在则进行播放
-			//如果不存在则需要下载
-			//下载期间则播放公司宣传片
-			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
-			var localUrl = url.split('/');
-			for (var i = 0; i < 3; i++) {
-				localUrl.shift();
-			}
-			localUrl = localUrl.join('/');
-
-			plus.io.resolveLocalFileSystemURL("_www/" + localUrl, function(entry) {
-				//可通过entry对象操作test.html文件 
-				//存在则进行播放
-				if (entry.isFile) {
-					obj.style.src = url;
-					player.self.setOptions(obj.style);
-					player.self.play();
-					setTimeout(function() {
-						if (process.state == 'play') me.play(obj);
-					}, obj.list[me.num].duration * 1000);
-					if (me.num == obj.list.length - 1) {
-						//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-						if (!process.persistent) return process.task_list();
-						return me.num = 0;
-					}
-					me.num++;
-				}
-				//如果不存在则需要下载
-				else {
-					me.playDown(obj, localUrl);
-				}
-			}, function(e) {
-				//alert("Resolve file URL failed: " + e.message);
-				me.playDown(obj, localUrl);
-			});
-
-
-		},
-
-		/**
-		 * 当对应的本地资源不存在，则下载远程资源并播放宣传片
-		 */
-		this.playDown = function(obj) {
-			plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry) {
-				//可通过entry对象操作test.html文件 
-				//存在则进行播放
-				var url = entry.toRemoteURL()
-				obj.style.src = url;
+		//视频播放列表
+		var obj = this.lists;
+		var url = obj.list[this.num].url;
+		var entry = null;
+		//如果当前url不存在，直接播放下一首,
+		if (!url || !url.length) {
+			this.num++;
+			if (obj.list.length > this.num) return me.play(obj);
+			//当所有url均为空时，停止video播放
+			player.self.stop();
+		}
+		//如果url不为空，则判断其对应的本地文件是否存在。
+		//如果存在则进行播放
+		//如果不存在则需要下载
+		//下载期间则播放公司宣传片
+		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
+		localUrl = server.localUrl(url);
+		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, function(entry) {
+			//可通过entry对象操作test.html文件 
+			//存在则进行播放
+			if (entry.isFile) {
+				obj.style.src = entry.toRemoteURL();
 				player.self.setOptions(obj.style);
 				player.self.play();
-		
+				setTimeout(function() {
+					if (process.state == 'play') me.play(obj);
+				}, obj.list[me.num].duration * 1000);
+				if (me.num == obj.list.length - 1) {
+					//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
+					if (!process.persistent) return process.task_list();
+					return me.num = 0;
+				}
+				me.num++;
+			}
+			//如果不存在则需要下载
+			else {
+				me.playDown(obj, url);
+			}
+		}, function(e) {
+			//alert("Resolve file URL failed: " + e.message);
+			me.playDown(obj, url);
+		});
+	},
 
-			}, function(e) {
-				//alert("Resolve file URL failed: " + e.message);
-				
-			});
-
-
-
-
-
-
-
-
-			// alert("中不存在");
-			// //下载视频文件
-
-			// //下载期间则播放公司宣传片
-			// obj.style.src = url; //下载期间的宣传片路径
-
-			// player.self.setOptions(obj.style);
-			// player.self.play();
-			// setTimeout(function() {
-			// 	if (process.state == 'play') me.play(obj);
-			// }, obj.list[this.num].duration * 1000);
-		}
+	/**
+	 * 当对应的本地资源不存在，则下载远程资源并播放宣传片
+	 */
+	this.playDown = function(obj, url) {
+		plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry) {
+			//视频下载初始化
+			var params = {
+				url: url,
+				option: conf.downloadOption
+			}
+			params.option.filename = params.option.filename + server.localUrl(url);
+			download.init(params);
+			//下载期间则播放公司宣传片
+			url = entry.toRemoteURL()
+			obj.style.src = url;
+			player.self.setOptions(obj.style);
+			player.self.play();
+			setTimeout(function() {
+				// if (process.state == 'play') me.play(obj);
+				if (process.state == 'play') process.task_list();
+			}, obj.list[me.num].duration * 1000);
+		}, function(e) {
+			//当宣传片都没有，就只能停下来了
+			player.self.stop();
+			setTimeout(function() {
+				if (process.state == 'play') process.task_list();
+			}, obj.list[me.num].duration * 1000);
+		});
+	}
 }
 
 /**
@@ -488,6 +533,7 @@ function plusReady() {
 	data.device_sn = $.md5(Object.values(data).join(''));
 	views.init();
 	server.init(data);
+	download.startAll();
 }
 
 // 如其名
@@ -495,60 +541,3 @@ function test() {
 	return
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// 播放
-function playVideo1() {
-	var path = document.getElementById('path1').value;
-	if (path && path.length > 0) {
-		video.setOptions({
-			src: path
-		});
-		video.play();
-	}
-}
-
-// 播放/暂停
-function ppVideo() {
-	playing ? video.pause() : video.play();
-}
-// 全屏
-function fullscreenVideo() {
-	video.requestFullScreen(-90);
-}
-// 创建子创建覆盖在视频控件上
-var wsub = null;
-
-function createSubview() {
-	if (!wsub) {
-		var topoffset = document.getElementById('video').offsetTop;
-		wsub = plus.webview.create('video_videoplayer_sub.html', 'sub', {
-			top: topoffset,
-			height: '300px',
-			position: 'static',
-			scrollIndicator: 'none',
-			background: 'transparent'
-		});
-		plus.webview.currentWebview().append(wsub);
-	}
-	wsub.isVisible() ? wsub.hide() : wsub.show();
-}
