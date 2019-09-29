@@ -2,8 +2,9 @@
  * 配置文件
  */
 var conf = {
-	httpHost: "http://192.168.0.114:3005",
-	wsHost: "ws://192.168.0.114:3005",
+	httpHost: "http://192.168.0.100:3005",
+	wsHost: "ws://192.168.0.100:3005",
+	promotionalPath:"_www/video/company/promotional/01.mp4"		//宣传片路径
 }
 
 /**
@@ -11,11 +12,14 @@ var conf = {
  */
 var server = {
 	host: conf.httpHost,
-	initTimes: 0,			//系统初始化次数
-	status: 0,				//系统状态 0 没有运行 1 正常运行
-	init: function(data){
-		server.initTimes ++;
-		app.notice({error:1, message:"正在进行第"+server.initTimes+"次初始化服务..."});
+	initTimes: 0, //系统初始化次数
+	status: 0, //系统状态 0 没有运行 1 正常运行
+	init: function(data) {
+		server.initTimes++;
+		app.notice({
+			error: 1,
+			message: "正在进行第" + server.initTimes + "次初始化服务..."
+		});
 		DL({
 			uri: server.host + '/api/device/reg',
 			data: data,
@@ -31,8 +35,8 @@ var server = {
 				ws.initWs();
 				me.exit();
 			},
-			error: function(){
-				if(!server.status) server.init(data);
+			error: function() {
+				if (!server.status) server.init(data);
 			}
 		});
 	}
@@ -46,7 +50,7 @@ var ws = {
 	host: conf.wsHost,
 	protocol: 'echo-protocol',
 	connection: null,
-	rebuildTime: 60000,		//得建ws连接时间
+	rebuildTime: 60000, //得建ws连接时间
 	//初始化webSocket服务
 	initWs: function() {
 		//创建webSocket连接
@@ -63,7 +67,9 @@ var ws = {
 			//请求播放任务
 			ws.send({
 				action: '/api/task/list',
-				data: {unid: getItem('unid')}
+				data: {
+					unid: getItem('unid')
+				}
 			});
 		};
 		ws.connection.onmessage = ws.onMsg;
@@ -71,20 +77,20 @@ var ws = {
 		ws.connection.onerror = ws.onErr;
 	},
 	//收到消息的处理方法
-	onMsg: function(msg){
+	onMsg: function(msg) {
 		msg = msg.data;
 		//业务逻辑信息处理.处理方法写到process对象
 		if (msg.error) return app.notice(msg);
 		msg = JSON.parse(msg);
 		//储存持久任务列表
 		process.storTask(msg);
-		if (msg.type in process){
+		if (msg.type in process) {
 			//设置当前任务属性
 			process.persistent = msg.persistent;
 			//执行插播任务
-			if(!msg.persistent) return process[msg.type](msg);
+			if (!msg.persistent) return process[msg.type](msg);
 			//循环执行播放列表任务
-			if(msg.persistent) return process[msg.type]();
+			if (msg.persistent) return process[msg.type]();
 		}
 		app.notice({
 			error: 1,
@@ -92,7 +98,7 @@ var ws = {
 		});
 	},
 	//服务关闭的处理方法
-	onClo: function(clo){
+	onClo: function(clo) {
 		//自动重建ws连接
 		ws.rebuildWs();
 	},
@@ -103,18 +109,18 @@ var ws = {
 		ws.sned({
 			action: '/api/device/err',
 			data: {
-				error:1,
+				error: 1,
 				unid: getItem('unid'),
-				message:err
+				message: err
 			}
 		});
 	},
 	//重建ws服务
-	rebuildWs: function(){
-		var rebuildWs = setInterval(function(){
-			if(ws.connection) return clearInterval(rebuildWs)
+	rebuildWs: function() {
+		var rebuildWs = setInterval(function() {
+			if (ws.connection) return clearInterval(rebuildWs)
 			ws.initWs();
-		},ws.rebuildTime)
+		}, ws.rebuildTime)
 	}
 };
 
@@ -125,14 +131,28 @@ var views = {
 	notice: '<div class="notice-box">' +
 		'<i class="icon-notice"></i>' +
 		'<marquee class="noticeText" direction="left" behavior="" scrollamount="1" scrolldelay="50" loop="0" width="100%" onmouseover="this.stop();" onmouseout="this.start();"  style="width: 100%;"></marquee>' +
-		'</div>'
+		'</div>',
+	blackmodel: '<div class="black-model"></div>',
+	wActiv: '<img class="img-activ" src="img/w-activ.jpg" />',
+	hActiv: '<img class="img-activ" src="img/h-activ.jpg" />',
+	//系统初始化时加载的引导页
+	init: function() {
+		window.innerHeight > 1600 ?
+			$("#contents").append(views.hActiv) :
+			$("#contents").append(views.wActiv);
+		$("#contents .img-activ").height(window.innerHeight);
+	},
+	//关机效果
+	shutdown: function() {
+		$("#contents").html(views.blackmodel)
+	}
 }
 
 /**
  * 视频播放器控制对象
  */
 var player = {
-	self: null,	  //video对象
+	self: null, //video对象
 	state: false, //当前播放状态
 	/**
 	 * 实例化播放器
@@ -148,12 +168,12 @@ var player = {
 		player.self.addEventListener('play', function() {
 			//updatePlaying(true);
 		}, false);
-		
+
 		//监听暂停事件
 		player.self.addEventListener('pause', function() {
 			//updatePlaying(false);
 		}, false);
-		
+
 		/**
 		 * 视频播放进度更新事件
 		 * @param {Object} o
@@ -163,44 +183,44 @@ var player = {
 				 duration:"Number类型，视频总长度（单位为秒）"
 			}。
 		 */
-		player.self.addEventListener("timeupdate", function(e){
+		player.self.addEventListener("timeupdate", function(e) {
 			return;
 			e.eventType = "timeupdate";
 			ws.send({
-				action:'/api/device/ent',
+				action: '/api/device/ent',
 				unid: getItem('unid'),
 				data: e
 			});
 		});
-		
+
 		/**
 		 * 视频缓冲事件
 		 * (String 类型 )当视频播放出现缓冲时触发。 无事件回调函数参数。
 		 */
-		player.self.addEventListener("waiting", function(e){
+		player.self.addEventListener("waiting", function(e) {
 			return;
 			e.eventType = "waiting";
 			ws.send({
-				action:'/api/device/ent',
+				action: '/api/device/ent',
 				unid: getItem('unid'),
 				data: e
 			});
 		});
-		
+
 		/**
 		 * 视频错误事件
 		 * (String 类型 )当视频播放出错时触发。 无事件回调函数参数。
 		 */
-		player.self.addEventListener("error", function(e){
+		player.self.addEventListener("error", function(e) {
 			return;
 			e.eventType = "error";
 			ws.send({
-				action:'/api/device/ent',
+				action: '/api/device/ent',
 				unid: getItem('unid'),
 				data: e
 			});
 		});
-		
+
 		return player;
 	}
 }
@@ -210,25 +230,28 @@ var player = {
  */
 var process = {
 	//所有任务主体，访问任务主体：$(process.tasks['t1'])。 't1' 为 'taskTag'
-	tasks:{},  
-	
+	tasks: {},
+
+	//任务控制状态 有停止状态stop， 播放状态play(默认)
+	state: 'play',
+
 	/**
 	 * 暂存数据
 	 * 被暂存的数据需要有 persistent = true 标识
 	 */
-	storTask: function(data){
+	storTask: function(data) {
 		//alert(JSON.stringify(data));
-		if(!data.persistent) return;
+		if (!data.persistent) return;
 		setItem("task_list", data);
 	},
-	
+
 	/**
 	 * 读有效的任务列表
 	 */
-	readTask: function(){
+	readTask: function() {
 		var taskList = getItem('task_list') || {};
 		return taskList.list;
-		
+
 	},
 
 	/**
@@ -238,67 +261,89 @@ var process = {
 	 */
 	task_list: function(data) {
 		//任务主体
-		var task;	
+		var task;
 		data = data || process.readTask(); //优先执行插播任务的任务列表
-		if(!data){
-			setTimeout(function(){
-				app.notice({error: 1, message:"播放任务为空！"});
+		if (!data) {
+			setTimeout(function() {
+				app.notice({
+					error: 1,
+					message: "播放任务为空！"
+				});
 			}, 3000)
 			return;
-		} 
+		}
 		$("#contents").html('');
 		for (var i = 0; i < data.length; i++) {
 			if (!data[i].enable) continue;
 			!data[i].type in process
 			eval(('var typeFunc = ' + data[i].type))
-			if(typeof typeFunc != 'function') continue;
+			if (typeof typeFunc != 'function') continue;
 			//将任务内容装到任务主体
 			task = $(views[data[i].type])[0].outerHTML;
 			//加载附加样式
-			task= $(task).attr('data-tag', data[i].taskTag); 
-			if(data[i].style) task.css(data[i].style);
+			task = $(task).attr('data-tag', data[i].taskTag);
+			if (data[i].style) task.css(data[i].style);
 			//将任务主体索引到任务主体对象列表
 			$("#contents").append(task);
 			//实现媒体功能
 			process.tasks[data[i].taskTg] = new typeFunc();
 			process.tasks[data[i].taskTg].lists = data[i];
 			process.tasks[data[i].taskTg].play();
-		}  
+		}
+	},
+
+	/**
+	 * 停止屏幕播放
+	 */
+	oper_stop: function() {
+		//设置任务状态，后续任务依据该状态执行
+		process.state = 'stop';
+		//及时同步播放器改变状态
+		player.self.stop();
+	},
+	/**
+	 * 恢复屏幕播放
+	 */
+	oper_play: function() {
+		//设置任务状态，后续任务依据该状态执行
+		process.state = 'play';
+		//启动播放任务
+		process.task_list();
 	}
 };
 
 /**
  * 消息任务执行成员
  */
-function notice(){
+function notice() {
 	var me = this;
-	this.lists ={};
+	this.lists = {};
 	//节目序号
 	this.num = 0;
-	
-	this.play = function(){
+
+	this.play = function() {
 		var obj = this.lists;
 		//视频播放列表
 		var title = obj.list[this.num].title;
 		var content = obj.list[this.num].content;
 		$('[data-tag=' + obj.taskTag + ']').find('.icon-notice').html(title);
 		$('[data-tag=' + obj.taskTag + ']').find('.noticeText').html(content);
-		setTimeout(function(){
-			me.play(obj);
-		},obj.list[this.num].duration * 1000);
-		if(this.num == obj.list.length-1){
+		setTimeout(function() {
+			if (process.state == 'play') me.play(obj);
+		}, obj.list[this.num].duration * 1000);
+		if (this.num == obj.list.length - 1) {
 			//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-			if(!process.persistent) return process.task_list();
+			if (!process.persistent) return process.task_list();
 			return this.num = 0;
 		}
-		this.num ++;
+		this.num++;
 	}
 }
 
 /**
  * 视频任务执行成员
  */
-function video(){
+function video() {
 	var me = this;
 	player.init();
 	this.lists = {};
@@ -306,60 +351,130 @@ function video(){
 	this.num = 0;
 	//播放列表
 	this.play = function() {
-		//视频播放列表
-		var obj = this.lists;
-		var url = obj.list[this.num].url;
-		if (url && url.length > 0) {
+			//视频播放列表
+			var obj = this.lists;
+			var url = obj.list[this.num].url;
+			var entry = null;
+			//如果当前url不存在，直接播放下一首,
+			if (!url || !url.length) {
+				this.num++;
+				if (obj.list.length > this.num) return me.play(obj);
+				//当所有url均为空时，停止video播放
+				player.self.stop();
+			}
+			//如果url不为空，则判断其对应的本地文件是否存在。
+			//如果存在则进行播放
+			//如果不存在则需要下载
+			//下载期间则播放公司宣传片
 			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
-			player.self.setOptions({
-				src: url
+			var localUrl = url.split('/');
+			for (var i = 0; i < 3; i++) {
+				localUrl.shift();
+			}
+			localUrl = localUrl.join('/');
+
+			plus.io.resolveLocalFileSystemURL("_www/" + localUrl, function(entry) {
+				//可通过entry对象操作test.html文件 
+				//存在则进行播放
+				if (entry.isFile) {
+					obj.style.src = url;
+					player.self.setOptions(obj.style);
+					player.self.play();
+					setTimeout(function() {
+						if (process.state == 'play') me.play(obj);
+					}, obj.list[me.num].duration * 1000);
+					if (me.num == obj.list.length - 1) {
+						//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
+						if (!process.persistent) return process.task_list();
+						return me.num = 0;
+					}
+					me.num++;
+				}
+				//如果不存在则需要下载
+				else {
+					me.playDown(obj, localUrl);
+				}
+			}, function(e) {
+				//alert("Resolve file URL failed: " + e.message);
+				me.playDown(obj, localUrl);
 			});
-			player.self.play();
+
+
+		},
+
+		/**
+		 * 当对应的本地资源不存在，则下载远程资源并播放宣传片
+		 */
+		this.playDown = function(obj) {
+			plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry) {
+				//可通过entry对象操作test.html文件 
+				//存在则进行播放
+				var url = entry.toRemoteURL()
+				obj.style.src = url;
+				player.self.setOptions(obj.style);
+				player.self.play();
+		
+
+			}, function(e) {
+				//alert("Resolve file URL failed: " + e.message);
+				
+			});
+
+
+
+
+
+
+
+
+			// alert("中不存在");
+			// //下载视频文件
+
+			// //下载期间则播放公司宣传片
+			// obj.style.src = url; //下载期间的宣传片路径
+
+			// player.self.setOptions(obj.style);
+			// player.self.play();
+			// setTimeout(function() {
+			// 	if (process.state == 'play') me.play(obj);
+			// }, obj.list[this.num].duration * 1000);
 		}
-		setTimeout(function(){
-			me.play(obj);
-		},obj.list[this.num].duration * 1000);
-		if(this.num == obj.list.length-1){
-			//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-			if(!process.persistent) return process.task_list();
-			return this.num = 0;
-		} 
-		this.num ++;
-	}
 }
 
 /**
  * 图片任务执行成员
  */
-function img(){
+function img() {
 	var me = this;
 	this.lists = {};
 	//节目序号
 	this.num = 0;
-	this.play = function(){
+	this.play = function() {
 		var obj = this.lists;
 		//视频播放列表
 		var url = obj.list[this.num].url;
 		if (url && url.length > 0) {
 			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
-			$('[data-tag=' + obj.taskTag + ']').find('img').attr('src',url);
+			$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
 		}
-		setTimeout(function(){
-			me.play(obj);
-		},obj.list[me.num].duration * 1000);
-		if(this.num == obj.list.length-1){
+		setTimeout(function() {
+			if (process.state == 'play') me.play(obj);
+		}, obj.list[me.num].duration * 1000);
+		if (this.num == obj.list.length - 1) {
 			//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-			if(!process.persistent) return process.task_list();
+			if (!process.persistent) return process.task_list();
 			return this.num = 0;
-		} 
-		this.num ++;
+		}
+		this.num++;
 	}
 }
 
 /**
  * H5 plus事件处理
- */ 
+ */
 function plusReady() {
+	test();
+
 	//创建服务器连接
 	//流程:客户端启动完成->拿客户端标识到服务端注册->服务器返回注册完成后的客户端对应的数据表id号->
 	//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
@@ -371,10 +486,14 @@ function plusReady() {
 		device_uuid: plus.device.uuid
 	};
 	data.device_sn = $.md5(Object.values(data).join(''));
+	views.init();
 	server.init(data);
 }
 
-
+// 如其名
+function test() {
+	return
+}
 
 
 
@@ -433,7 +552,3 @@ function createSubview() {
 	}
 	wsub.isVisible() ? wsub.hide() : wsub.show();
 }
-
-
-
-

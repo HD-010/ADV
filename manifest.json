@@ -1,7 +1,7 @@
 {
     "@platforms" : [ "android", "iPhone", "iPad" ],
     "id" : "H590D62B1", //应用的标识，创建应用时自动生成，勿手动修改 
-    "name" : "Hello H5+", //应用名称，程序桌面图标名称 
+    "name" : "e-AD", //应用名称，程序桌面图标名称 
     "version" : {
         "name" : "2.5.6", //应用版本名称 
         "code" : "20506" //应用版本号 
@@ -85,20 +85,20 @@
         },
         "launchwebview" : {
             //首窗口样式
-            "titleNView" : {
-                //首页窗口标题栏样式
-                "titleText" : "Hello H5+",
-                "titleColor" : "#CCCCCC",
-                "backgroundColor" : "#D74B28",
-                "buttons" : [
-                    {
-                        "fontSrc" : "_www/helloh5.ttf",
-                        "text" : "",
-                        "fontSize" : "22px",
-                        "onclick" : "javascript:openAbout()"
-                    }
-                ]
-            }
+    //         "titleNView" : {
+    //             //首页窗口标题栏样式
+    //             "titleText" : "e-AD",
+    //             "titleColor" : "#CCCCCC",
+    //             "backgroundColor" : "#D74B28",
+    //             "buttons" : [
+    //                 {
+    //                     "fontSrc" : "_www/helloh5.ttf",
+    //                     "text" : "",
+    //                     "fontSize" : "22px",
+    //                     "onclick" : "javascript:openAbout()"
+    //                 }
+    //             ]
+    //         }
         },
         "popGesture" : "close", //设置应用默认侧滑返回关闭Webview窗口，"none"为无侧滑返回功能，"hide"为侧滑隐藏Webview窗口。参考http://ask.dcloud.net.cn/article/102 
         "runmode" : "liberate", //应用的首次启动运行模式，可取liberate或normal，liberate模式在第一次启动时将解压应用资源（Android平台File API才可正常访问_www目录） 
