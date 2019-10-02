@@ -143,6 +143,7 @@ function ViewData(params){
     this.async = params.async || true;
     //接口地址
     this.uri = params.uri;
+	this.timeout = params.timeout || 120000;
     //接口数据加载前的操作
     this.befor = params.befor;
     //接口数据加载后的操作
@@ -230,6 +231,7 @@ function ViewData(params){
 			}else{
 				(new xhr5()).req({
 					uri: that.host + that.uri,
+					timeout: that.timeout,
 					method: "POST"
 				},function(results){
 					if(results.status == 200){
@@ -240,7 +242,6 @@ function ViewData(params){
 						that.run();
 					}else{
 						results = results.responseText;
-						//console.log("error::::",results);
 						that.results = results;
 						if(that.dev === 'on') that.log(that.results);
 						if(typeof that.error === "function") that.error(that.results);

@@ -1306,6 +1306,7 @@ function xhr5(){
 					break;
 			}
 		}
+		that.xhr.timeout = params.timeout;
 		that.xhr.open(that.method, that.url);
 		that.xhr.send(that.data);
 		
@@ -1597,6 +1598,12 @@ function arrNotempty(array){
         }
     });
     return arr;
+}
+
+function print_r(data,select){
+	select = select || "body";
+	var str = "<pre>"+JSON.stringify(data, null, 2)+"</pre>"
+	$(select).append(str);
 }
 
 

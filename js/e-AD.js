@@ -32,11 +32,14 @@ var server = {
 		DL({
 			uri: server.host + '/api/device/reg',
 			data: data,
+			timeout: 2000,
 			befor: function(me) {
-				server.status = 1;
-				//console.log(JSON.stringify(me.results));
 				var res = me.results;
-				if (res.error) return;
+				if (!res || res.error || !res.data) {
+					me.exit();
+					return err();
+				}
+				server.status = 1;
 				//将客户端id储存起来
 				setItem('unid', res.data.id);
 				//eval("(process = " + res.data.process + ")");
@@ -44,15 +47,25 @@ var server = {
 				ws.initWs();
 				me.exit();
 			},
-			error: function() {
-				try{
-					//具备离线播放条件，而且与服务器连接失败的情况下转为离线播放
-					if(getItem('unid') && getItem("task_list")) return process.task_list();
-					//不具备离线播放条件，则无限尝试与服务器连接获取数据
-					if (!server.status) server.init(data);
-				}catch(e){}
-			}
+			error: err
 		});
+		
+		function err(){
+			try{
+				//具备离线播放条件，而且与服务器连接失败的情况下转为离线播放
+				if(getItem('unid') && 
+				getItem("task_list") &&
+				process.state != 'play') {
+					process.state = 'play';
+					//设置当前任务属性
+					process.persistent = false;
+					player.distruct();
+					process.task_list();
+				}
+				//离线播放，则无限尝试与服务器连接获取数据
+				if (!server.status) server.init(data);
+			}catch(e){}  
+		}
 	},
 	
 	localUrl: function(url){
@@ -110,9 +123,12 @@ var ws = {
 			//设置当前任务属性
 			process.persistent = msg.persistent;
 			//执行插播任务
-			if (!msg.persistent) return process[msg.type](msg);
+            if (!msg.persistent) return process[msg.type](msg);
 			//循环执行播放列表任务
-			if (msg.persistent) return process[msg.type]();
+			if (msg.persistent) {
+				process.state = "play";
+				return process[msg.type]();
+			}
 		}
 		app.notice({
 			error: 1,
@@ -128,17 +144,22 @@ var ws = {
 	onErr: function(err) {
 		//尝试重新发送信息1次。如果还是错误,反馈到设备列表状态
 		ws.rebuildWs();
-		ws.sned({
-			action: '/api/device/err',
-			data: {
-				error: 1,
-				unid: getItem('unid'),
-				message: err
-			}
-		});
+		if(!ws.connection) return;
+		var errWs = setTimeout(function(){
+			clearTimeout(errWs);
+			ws.sned({
+				action: '/api/device/err',
+				data: {
+					error: 1,
+					unid: getItem('unid'),
+					message: err
+				}
+			});
+		}, 59000);
 	},
 	//重建ws服务
 	rebuildWs: function() {
+		ws.connection = null;
 		var rebuildWs = setInterval(function() {
 			if (ws.connection) return clearInterval(rebuildWs)
 			ws.initWs();
@@ -282,6 +303,10 @@ var player = {
 		});
 
 		return player;
+	},
+	
+	distruct: function(){
+		if(player.self) player.self.close();
 	}
 }
 
@@ -291,9 +316,10 @@ var player = {
 var process = {
 	//所有任务主体，访问任务主体：$(process.tasks['t1'])。 't1' 为 'taskTag'
 	tasks: {},
-
+	//定时任务
+	timeout:[],
 	//任务控制状态 有停止状态stop， 播放状态play(默认)
-	state: 'play',
+	state: '',
 
 	/**
 	 * 暂存数据
@@ -311,7 +337,6 @@ var process = {
 	readTask: function() {
 		var taskList = getItem('task_list') || {};
 		return taskList.list;
-
 	},
 
 	/**
@@ -320,23 +345,26 @@ var process = {
 	 * @param {Object} data
 	 */
 	task_list: function(data) {
-		//任务主体
-		var task;
 		data = data || process.readTask(); //优先执行插播任务的任务列表
 		if (!data) {
-			setTimeout(function() {
-				app.notice({
-					error: 1,
-					message: "播放任务为空！"
-				});
-			}, 3000)
-			return;
+			return app.notice({
+				error: 1,
+				message: "播放任务为空！"
+			});
 		}
+		//初始化任务列表
+		process.tasks = {};
+		//销毁之前的播放器对象
+		player.distruct();
+		//初始化定时器
+		process.clearTimeout();
+		//当前任务主体
+		var task;
 		$("#contents").html('');
 		for (var i = 0; i < data.length; i++) {
 			if (!data[i].enable) continue;
-			!data[i].type in process
-			eval(('var typeFunc = ' + data[i].type))
+			if(!data[i].type in process) continue;
+			eval(('var typeFunc = ' + data[i].type));
 			if (typeof typeFunc != 'function') continue;
 			//将任务内容装到任务主体
 			task = $(views[data[i].type])[0].outerHTML;
@@ -359,7 +387,7 @@ var process = {
 		//设置任务状态，后续任务依据该状态执行
 		process.state = 'stop';
 		//及时同步播放器改变状态
-		player.self.stop();
+		player.self.stop(); 
 	},
 	/**
 	 * 恢复屏幕播放
@@ -369,6 +397,14 @@ var process = {
 		process.state = 'play';
 		//启动播放任务
 		process.task_list();
+	},
+	
+	//清空之前的定时任务
+	clearTimeout: function(){
+		for(var i in process.timeout){
+			clearTimeout(process.timeout[i]);
+			process.timeout = [];
+		}
 	}
 };
 
@@ -380,41 +416,37 @@ function notice() {
 	this.lists = {};
 	//节目序号
 	this.num = 0;
-
 	this.play = function() {
-		var obj = this.lists;
+		var obj = me.lists;
 		//视频播放列表
-		var title = obj.list[this.num].title;
-		var content = obj.list[this.num].content;
+		var title = obj.list[me.num].title;
+		var content = obj.list[me.num].content;
 		$('[data-tag=' + obj.taskTag + ']').find('.icon-notice').html(title);
 		$('[data-tag=' + obj.taskTag + ']').find('.noticeText').html(content);
-		setTimeout(function() {
-			if (process.state == 'play') me.play(obj);
-		}, obj.list[this.num].duration * 1000);
-		if (this.num == obj.list.length - 1) {
-			//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-			if (!process.persistent) return process.task_list();
-			return this.num = 0;
-		}
-		this.num++;
+		process.timeout.push(setTimeout(function() {
+			if (process.state == 'play') me.play();
+		}, obj.list[me.num].duration * 1000));
+		if (me.num == (obj.list.length - 1)) return me.num = 0;
+		me.num++; 
 	}
+
 }
 
 /**
  * 视频任务执行成员
  */
 function video() {
-	var me = this;
 	player.init();
 	this.lists = {};
 	//节目序号
 	this.num = 0;
 	//播放列表
 	this.play = function() {
+		var me = this;
 		//视频播放列表
 		var obj = this.lists;
 		var url = obj.list[this.num].url;
-		var entry = null;
+		var entry = null; 
 		//如果当前url不存在，直接播放下一首,
 		if (!url || !url.length) {
 			this.num++;
@@ -429,61 +461,72 @@ function video() {
 		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 		localUrl = server.localUrl(url);
 		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, function(entry) {
-			//可通过entry对象操作test.html文件 
-			//存在则进行播放
-			if (entry.isFile) {
-				obj.style.src = entry.toRemoteURL();
-				player.self.setOptions(obj.style);
-				player.self.play();
-				setTimeout(function() {
-					if (process.state == 'play') me.play(obj);
-				}, obj.list[me.num].duration * 1000);
-				if (me.num == obj.list.length - 1) {
-					//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-					if (!process.persistent) return process.task_list();
-					return me.num = 0;
-				}
-				me.num++;
-			}
 			//如果不存在则需要下载
-			else {
-				me.playDown(obj, url);
-			}
+			if (!entry.isFile) return me.playDown(obj, url);
+			//存在则进行播放 
+			obj.style.src = entry.toRemoteURL();
+			me.playStart(obj.style);
+			process.timeout.push(setTimeout(function() {
+				if ((process.state == 'play') && (me.num < obj.list.length)) {
+					me.play();
+				}else if(!process.persistent){
+					player.distruct();
+					process.task_list();
+				}
+			}, obj.list[me.num].duration * 1000));
+			//alert(me.num + '==' + (obj.list.length-1))
+			if ((me.num == (obj.list.length-1)) && process.persistent) return me.num = 0;
+			me.num++;
 		}, function(e) {
-			//alert("Resolve file URL failed: " + e.message);
 			me.playDown(obj, url);
 		});
+	},
+	
+	this.playStart = function(options){
+		player.self.setOptions(options);
+		player.self.play();
 	},
 
 	/**
 	 * 当对应的本地资源不存在，则下载远程资源并播放宣传片
 	 */
 	this.playDown = function(obj, url) {
-		plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry) {
+		var me = this;
+		plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry){
 			//视频下载初始化
-			var params = {
-				url: url,
-				option: conf.downloadOption
+			var params = {}
+			params.url = url;
+			params.option = {
+				method: conf.downloadOption.method,
+				data: conf.downloadOption.data,
+				filename: conf.downloadOption.filename + server.localUrl(url),
+				priority: conf.downloadOption.priority,
+				timeout: conf.downloadOption.timeout,
+				retry: conf.downloadOption.retry,
+				retryInterval: conf.downloadOption.retryInterval
 			}
-			params.option.filename = params.option.filename + server.localUrl(url);
+			
+			// alert("下载文件名称"+params.option.filename);
 			download.init(params);
+			
 			//下载期间则播放公司宣传片
-			url = entry.toRemoteURL()
+			url = entry.toRemoteURL();
 			obj.style.src = url;
-			player.self.setOptions(obj.style);
-			player.self.play();
+			me.playStart(obj.style);
 			setTimeout(function() {
-				// if (process.state == 'play') me.play(obj);
-				if (process.state == 'play') process.task_list();
+				player.distruct();
+				process.task_list();
 			}, obj.list[me.num].duration * 1000);
 		}, function(e) {
 			//当宣传片都没有，就只能停下来了
+			//alert("宣传片都没有，就只能停下来了"+ conf.promotionalPath);
 			player.self.stop();
-			setTimeout(function() {
-				if (process.state == 'play') process.task_list();
-			}, obj.list[me.num].duration * 1000);
+			process.timeout.push(setTimeout(function() {
+				if (process.state == 'play') me.play();
+			}, obj.list[me.num].duration * 1000));
 		});
 	}
+
 }
 
 /**
@@ -495,31 +538,27 @@ function img() {
 	//节目序号
 	this.num = 0;
 	this.play = function() {
-		var obj = this.lists;
+		var obj = me.lists;
 		//视频播放列表
-		var url = obj.list[this.num].url;
+		var url = obj.list[me.num].url;
 		if (url && url.length > 0) {
 			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 			$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
 		}
-		setTimeout(function() {
-			if (process.state == 'play') me.play(obj);
-		}, obj.list[me.num].duration * 1000);
-		if (this.num == obj.list.length - 1) {
-			//如果当前执行的不是循环任务列表，则重新执行循环任务列表的任务
-			if (!process.persistent) return process.task_list();
-			return this.num = 0;
-		}
-		this.num++;
+		process.timeout.push(setTimeout(function() {
+			if (process.state == 'play') me.play();
+		}, obj.list[me.num].duration * 1000));
+		if (me.num == (obj.list.length - 1)) return me.num = 0;
+		me.num++;
 	}
+	
 }
 
 /**
  * H5 plus事件处理
  */
 function plusReady() {
-	test();
-
+	plus.device.setWakelock(true);
 	//创建服务器连接
 	//流程:客户端启动完成->拿客户端标识到服务端注册->服务器返回注册完成后的客户端对应的数据表id号->
 	//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
