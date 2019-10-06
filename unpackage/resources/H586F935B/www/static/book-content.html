@@ -1,0 +1,44 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<meta name="HandheldFriendly" content="true" />
+		<meta name="MobileOptimized" content="320" />
+		<title>Hello H5+</title>
+		<script type="text/javascript" src="../js/common.js"></script>
+		<script type="text/javascript" src="../js/jquery.min.js"></script>
+		<script type="text/javascript" src="../js/app.js"></script>
+		<script type="text/javascript" src="../js/autoload.js"></script>
+		
+		<link rel="stylesheet" href="../css/common.css" type="text/css" charset="utf-8" />
+	</head>
+	<body>
+		<div id="book-content-content">
+			
+		</div>
+		<script type="text/javascript">
+			if(window.plus){
+				plusReady()
+			}else{
+				document.addEventListener("plusready", plusReady, false);
+			}
+			function plusReady(){
+				var uri = getItem( "DATA_URI");
+				DL({
+					dev: 'on',
+					id: "#book-content-content",
+					cached: true,
+					uri: uri,
+					befor: function(that){
+						//console.log(that.results)
+						$("#book-content-content").append($(that.results).find("h1"));
+						$("#book-content-content").append($(that.results).find("#content"));
+					}
+				})
+				
+				
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,106 @@
+.mui-switch {
+    width: 50px;
+    height: 20px;
+    position: relative;
+    border: 1px solid #dfdfdf;
+    background-color: #fdfdfd;
+    box-shadow: #dfdfdf 0 0 0 0 inset;
+    border-radius: 20px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    background-clip: content-box;
+    display: inline-block;
+    -webkit-appearance: none;
+    user-select: none;
+    outline: none; 
+    cursor:pointer;
+}
+ 
+ .mui-switch:before {
+    content: '';
+    width: 15px;
+    height: 12px;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    border-radius: 20px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    background-color: #D2D2D2;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); 
+}
+    
+.mui-switch:checked {
+    border-color: #64bd63;
+    box-shadow: #64bd63 0 0 0 15x inset;
+    background-color: #64bd63;
+ }
+    
+.mui-switch:checked:before {
+    top:3px;
+    left: 30px;
+    background-color: #fff;
+ }
+    
+.mui-switch.mui-switch-animbg {
+    transition: background-color ease 0.4s; 
+}
+    
+.mui-switch.mui-switch-animbg:before {
+    transition: left 0.3s; 
+}
+    
+.mui-switch.mui-switch-animbg:checked {
+    box-shadow: #dfdfdf 0 0 0 0 inset;
+    background-color: #64bd63;
+    transition: border-color 0.4s, background-color ease 0.4s;
+ }
+    
+.mui-switch.mui-switch-animbg:checked:before {
+    transition: left 0.3s; 
+}
+    
+ .mui-switch.mui-switch-anim {
+    transition: border cubic-bezier(0, 0, 0, 1) 0.4s, box-shadow cubic-bezier(0, 0, 0, 1) 0.4s;
+ }
+    
+.mui-switch.mui-switch-anim:before {
+    transition: left 0.3s;
+ }
+    
+.mui-switch.mui-switch-anim:checked {
+    box-shadow: #64bd63 0 0 0 16px inset;
+    background-color: #64bd63;
+    transition: border ease 0.4s, box-shadow ease 0.4s, background-color ease 1.2s; 
+}
+    
+.mui-switch.mui-switch-anim:checked:before {
+        transition: left 0.3s; 
+}
+.mui-switch + em{
+	position: relative;
+	top: -6px;
+	left: -48px;
+	font-size: 10px;
+    color:#ffffff;
+    cursor:pointer;
+}
+.mui-switch:focus{
+    outline:none;
+}
+input[type=checkbox]:focus {
+    outline: none; 
+}
+/* 使用案列 */
+/*
+<label><input class="mui-switch" type="checkbox"> 默认未选中</label>
+<label><input class="mui-switch" type="checkbox" checked> 默认选中</label>
+<label><input class="mui-switch mui-switch-animbg" type="checkbox"> 默认未选中,简单的背景过渡效果,加mui-switch-animbg类即可</label>
+<label><input class="mui-switch mui-switch-animbg" type="checkbox" checked> 默认选中</label>
+<label><input class="mui-switch mui-switch-anim" type="checkbox"> 默认未选中，过渡效果，加 mui-switch-anim类即可</label>
+<label><input class="mui-switch mui-switch-anim" type="checkbox" checked> 默认选中</label>
+*/

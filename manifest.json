@@ -1,6 +1,6 @@
 {
     "@platforms" : [ "android", "iPhone", "iPad" ],
-    "id" : "H590D62B1", //应用的标识，创建应用时自动生成，勿手动修改 
+    "id" : "H586F935B", //应用的标识，创建应用时自动生成，勿手动修改 
     "name" : "e-AD", //应用名称，程序桌面图标名称 
     "version" : {
         "name" : "2.5.6", //应用版本名称 
@@ -31,14 +31,8 @@
         "Messaging" : {
             "description" : "消息通讯"
         },
-        "Maps" : {
-            "description" : "地图"
-        },
         "OAuth" : {
             "description" : "登录授权"
-        },
-        "Payment" : {
-            "description" : "支付"
         },
         "Push" : {
             "description" : "消息推送"
@@ -60,7 +54,8 @@
         },
         "LivePusher" : {
             "description" : "直播推流"
-        }
+        },
+        "Maps" : {}
     },
     "plus" : {
         "splashscreen" : {
@@ -83,23 +78,22 @@
                 "offset" : "auto"
             }
         },
-        "launchwebview" : {
-            //首窗口样式
-    //         "titleNView" : {
-    //             //首页窗口标题栏样式
-    //             "titleText" : "e-AD",
-    //             "titleColor" : "#CCCCCC",
-    //             "backgroundColor" : "#D74B28",
-    //             "buttons" : [
-    //                 {
-    //                     "fontSrc" : "_www/helloh5.ttf",
-    //                     "text" : "",
-    //                     "fontSize" : "22px",
-    //                     "onclick" : "javascript:openAbout()"
-    //                 }
-    //             ]
-    //         }
-        },
+        "launchwebview" : {},
+        //首窗口样式
+        //         "titleNView" : {
+        //             //首页窗口标题栏样式
+        //             "titleText" : "e-AD",
+        //             "titleColor" : "#CCCCCC",
+        //             "backgroundColor" : "#D74B28",
+        //             "buttons" : [
+        //                 {
+        //                     "fontSrc" : "_www/helloh5.ttf",
+        //                     "text" : "",
+        //                     "fontSize" : "22px",
+        //                     "onclick" : "javascript:openAbout()"
+        //                 }
+        //             ]
+        //         }
         "popGesture" : "close", //设置应用默认侧滑返回关闭Webview窗口，"none"为无侧滑返回功能，"hide"为侧滑隐藏Webview窗口。参考http://ask.dcloud.net.cn/article/102 
         "runmode" : "liberate", //应用的首次启动运行模式，可取liberate或normal，liberate模式在第一次启动时将解压应用资源（Android平台File API才可正常访问_www目录） 
         "signature" : "Sk9JTiBVUyBtYWlsdG86aHIyMDEzQGRjbG91ZC5pbw==", //可选，保留给应用签名，暂不使用
@@ -149,40 +143,37 @@
                 "password" : "", //Android应用打包使用密钥库中证书的密码 
                 "aliasname" : "", //Android应用打包使用密钥库中证书的别名
                 "permissions" : [
-                    //原生安卓需要使用到的系统权限 
-                    "<uses-permission android:name=\"com.android.launcher.permission.INSTALL_SHORTCUT\"/>",
-                    "<uses-permission android:name=\"com.android.launcher.permission.UNINSTALL_SHORTCUT\"/>",
+                    "<uses-feature android:name=\"android.hardware.camera\"/>",
+                    "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_MOCK_LOCATION\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.CALL_PHONE\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>",
                     "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
+                    "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
+                    "<uses-permission android:name=\"android.permission.GET_TASKS\"/>",
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>",
                     "<uses-permission android:name=\"android.permission.MOUNT_UNMOUNT_FILESYSTEMS\"/>",
                     "<uses-permission android:name=\"android.permission.READ_CONTACTS\"/>",
-                    "<uses-permission android:name=\"android.permission.GET_TASKS\"/>",
-                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
                     "<uses-permission android:name=\"android.permission.READ_LOGS\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
-                    "<uses-permission android:name=\"android.permission.WRITE_CONTACTS\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\"/>",
-                    "<uses-permission android:name=\"com.android.launcher.permission.UNINSTALL_SHORTCUT\"/>",
-                    "<uses-permission android:name=\"android.permission.CAMERA\"/>",
-                    "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
-                    "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
-                    "<uses-permission android:name=\"com.android.launcher.permission.INSTALL_SHORTCUT\"/>",
-                    "<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>",
-                    "<uses-permission android:name=\"android.permission.SEND_SMS\"/>",
-                    "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_SMS\"/>",
+                    "<uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\"/>",
+                    "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
+                    "<uses-permission android:name=\"android.permission.SEND_SMS\"/>",
+                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
                     "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
-                    "<uses-permission android:name=\"android.permission.CALL_PHONE\"/>",
-                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
-                    "<uses-permission android:name=\"android.permission.RECEIVE_USER_PRESENT\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_MOCK_LOCATION\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_CONTACTS\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>",
                     "<uses-permission android:name=\"android.permission.WRITE_SMS\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_SMS\"/>"
+                    "<uses-permission android:name=\"android.permission.RECEIVE_USER_PRESENT\"/>"
                 ]
             },
             "orientation" : [ "portrait-primary" ], //应用支持的方向，portrait-primary：竖屏正方向；portrait-secondary：竖屏反方向；landscape-primary：横屏正方向；landscape-secondary：横屏反方向 
@@ -231,14 +222,7 @@
                 "maps" : {},
                 "push" : {},
                 "share" : {},
-                "payment" : {
-                    //配置应用使用支付功能，参考http://ask.dcloud.net.cn/article/71 
-                    "alipay" : {
-                        //支付宝配置 
-                        "scheme" : "helloh5test", //ios平台在支付宝应用支付完成后返回当前应用使用的url scheme 
-                        "description" : "支付宝支付"
-                    }
-                },
+                "payment" : {},
                 "oauth" : {},
                 "speech" : {
                     "ifly" : {}
@@ -246,5 +230,6 @@
             }
         }
     },
-    "unpackage" : [ "js/update.json" ]
+    "unpackage" : [ "js/update.json" ],
+    "fullscreen" : true
 }

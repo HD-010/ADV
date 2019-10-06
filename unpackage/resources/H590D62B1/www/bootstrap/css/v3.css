@@ -1,0 +1,469 @@
+indbody {
+
+    font-size: 13px;
+
+    font-family: 微软雅黑;
+
+}
+
+
+
+ul, li {
+
+    padding: 0;
+
+    margin: 0;
+
+}
+
+.page-content{
+
+    width: 100%;
+
+    min-height:100px;
+
+    background: #fff;
+
+    padding: 30px;
+
+}
+
+/*自定义栅格*/
+
+.col-lg{
+
+    float: left;
+
+    padding-right: 10px;
+
+    padding-left: 10px;
+
+    position: relative;
+
+    width:140px;
+
+}
+
+
+
+/** checkbox radio */
+
+.checkbox-inline,.radio-inline{
+
+    position: relative;
+
+    color:#666;
+
+    padding-left:24px;
+
+    vertical-align: middle;
+
+    padding-top:7px;
+
+}
+
+.checkbox-inline input[type=checkbox] ,
+
+.radio-inline input[type=radio] {
+
+    position:absolute;
+
+    margin-left:-24px;
+
+    top:50%; margin-top:-5px;
+
+    cursor: pointer;
+
+}
+
+input[type=checkbox],
+
+input[type=radio] {
+
+    -webkit-appearance: none;
+
+    -moz-appearance: none;
+
+    appearance: none;
+
+    position: relative;
+
+    width: 16px;
+
+    height:16px;
+
+    border: 1px solid #e0e0e0;
+
+    outline: 0;
+
+    border-radius: 18px;
+
+    box-sizing: border-box;
+
+    -webkit-box-sizing: border-box;
+
+    -moz-box-sizing: border-box;
+
+    background:#fff;
+
+    vertical-align:middle;
+
+    -moz-transition-duration: 300ms;
+
+    -webkit-transition-duration: 300ms;
+
+    transition-duration: 300ms;
+
+    -webkit-transition-property: border-color ;
+
+    transition-property:border-color ;
+
+}
+
+input[type=checkbox].large,
+
+input[type=radio].large{
+
+    -webkit-appearance: none;
+
+    -moz-appearance: none;
+
+    appearance: none;
+
+    position: relative;
+
+    width: 18px;
+
+    height:18px;
+
+    border: 1px solid #e0e0e0;
+
+    outline: 0;
+
+    border-radius: 18px;
+
+    box-sizing: border-box;
+
+    -webkit-box-sizing: border-box;
+
+    -moz-box-sizing: border-box;
+
+    background:#fff;
+
+    vertical-align:middle;
+
+    -moz-transition-duration: 300ms;
+
+    -webkit-transition-duration: 300ms;
+
+    transition-duration: 300ms;
+
+    -webkit-transition-property: border-color ;
+
+    transition-property:border-color ;
+
+}
+
+
+
+input[type=checkbox],input[type=checkbox].large{
+
+    -webkit-border-radius:0px;
+
+    -moz-border-radius:0px;
+
+    border-radius:0px;
+
+}
+
+input[type=checkbox]:checked,input[type=radio]:checked {
+
+    border-color: #44abf7;;
+
+    background: #44abf7;
+
+}
+
+
+
+input[type=checkbox]:checked:before {
+
+    content: " ";
+
+    display: inline-block;
+
+    -webkit-transform: rotate(135deg);
+
+    -ms-transform: rotate(135deg);
+
+    -moz-transform: rotate(135deg);
+
+    transform: rotate(135deg);
+
+    height:6px;
+
+    width: 9px;
+
+    border-width: 2px 2px 0 0;
+
+    border-color: #fff;
+
+    border-style: solid;
+
+    position: absolute;
+
+    top: 3px;
+
+    margin-left:3px;
+
+}
+
+input[type=checkbox].large:checked:before{
+
+    top: 4px;
+
+    margin-left:4px;
+
+}
+
+input[type=radio]:checked:before {
+
+    content: " ";
+
+    display: inline-block;
+
+    height:8px;
+
+    width: 8px;
+
+    background: #44abf7;
+
+    border-radius: 50%;
+
+    position: absolute;
+
+    top: 2px;
+
+    margin-left:2px;
+
+}
+
+input[type=radio].large:checked:before{
+
+    top: 3px;
+
+    margin-left:3px;
+
+}
+
+input[type=radio]:checked{
+
+    border:2px solid #44abf7;
+
+    background: #fff;
+
+}
+
+
+
+input[type=checkbox].success,
+
+input[type=radio].success {
+
+    border: 1px solid #e0e0e0;
+
+}
+
+
+
+input[type=checkbox].success:checked,input[type=radio].success:checked:before
+
+{
+
+    border-color: #54c952;
+
+    background-color: #54c952;
+
+}
+
+input[type=radio].success:checked
+
+{
+
+    background: #fff;
+
+    border:2px solid #54c952;
+
+}
+
+input[type=checkbox].warning,
+
+input[type=radio].warning {
+
+    border:1px solid #e0e0e0;
+
+}
+
+input[type=checkbox].warning:checked,input[type=radio].warning:checked:before {
+
+    border-color: #ffc000;
+
+    background-color: #ffc000;
+
+}
+
+input[type=radio].warning:checked{
+
+    border:2px solid  #ffc000;
+
+    background-color: #fff;
+
+}
+
+input[type=checkbox].danger,
+
+input[type=radio].danger {
+
+    border:1px solid #e0e0e0;
+
+}
+
+input[type=checkbox].danger:checked,input[type=radio].danger:checked:before {
+
+    border-color: #eb6060;
+
+    background-color: #eb6060;
+
+}
+
+input[type=radio].danger:checked{
+
+    border:2px solid  #eb6060;
+
+    background-color: #fff;
+
+}
+
+
+
+input[type=checkbox].gray,
+
+input[type=radio].gray {
+
+    border:1px solid #e0e0e0;
+
+}
+
+input[type=checkbox].gray:checked,input[type=radio].gray:checked:before {
+
+    border-color: #ccc;
+
+    background-color: #ccc;
+
+}
+
+input[type=radio].gray:checked{
+
+    border:2px solid  #ccc;
+
+    background-color: #fff;
+
+}
+
+input[type=checkbox].success:checked:before,
+
+input[type=checkbox].primary:checked:before,
+
+input[type=checkbox].warning:checked:before,
+
+input[type=checkbox].danger:checked:before,
+
+input[type=radio].success:checked:before,
+
+input[type=radio].primary:checked:before,
+
+input[type=radio].warning:checked:before,
+
+input[type=radio].danger:checked:before
+
+{
+
+    border-color:#fff !important;
+
+}
+
+.btn {
+
+    outline: none !important;
+
+    padding: 8px 16px;
+
+    border-radius: 2px;
+
+    font-size: 12px;
+
+    line-height: 1;
+
+    color: #fff;
+
+    text-align: center;
+
+    vertical-align: middle;
+
+    -webkit-box-sizing: border-box;
+
+    -moz-box-sizing: border-box;
+
+    box-sizing: border-box;
+
+    cursor: pointer;
+
+    -webkit-transition: background-color 0.3s;
+
+    -moz-transition: background-color 0.3s;
+
+    transition: background-color 0.3s;
+
+    border: 1px solid transparent;
+
+}
+.btn-sm{
+
+    display: inline-block;
+
+    padding: 7px 8px;
+
+    border-radius: 2px;
+
+    font-size: 12px;
+
+    line-height: 1;
+
+    color: #fff;
+
+    background: #dddddd;
+
+    text-align: center;
+
+    vertical-align: middle;
+
+    -webkit-box-sizing: border-box;
+
+    -moz-box-sizing: border-box;
+
+    box-sizing: border-box;
+
+    cursor: pointer;
+
+    -webkit-transition: background-color 0.3s;
+
+    -moz-transition: background-color 0.3s;
+
+    transition: background-color 0.3s;
+
+}
+.btn-link {
+
+    color: inherit;
+
+}

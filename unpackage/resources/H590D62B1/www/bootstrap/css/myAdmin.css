@@ -1,0 +1,256 @@
+/* 首页header导航开始 */
+.header{
+    position: fixed;
+    top:0px;
+    height: 60px;
+    width:100%;
+    line-height:60px;
+    background-color: #3ca2d7;
+    overflow: hidden;
+    color:#ffffff;
+    font-weight: 400;
+    z-index: 999999;
+}
+.header a{
+    color:#FFFFFF;
+}
+.header .icon-sousuo{
+    position: absolute;
+    z-index: 99999; 
+    color: #3ca2d7;
+    margin-left:5px; 
+    
+}
+.header .form-control{
+    display:inline;
+    padding-left:22px;
+    width: 50%;
+    border-radius: 10px;
+}
+.header .nvatab li a{
+    color:#ffffff;
+    font-weight:600;
+    font-size:16px;
+}
+.header .nvatab li:hover{
+    background-color: #5DB4E0;
+    cursor:pointer;
+}
+
+.active{
+    background-color: #5DB4E0;
+}
+
+.header-space{
+    border:0;
+    height:60px;
+}
+/* 首页header导航结束 */
+
+
+/* 首页右侧导航开始 */
+.shouye .index{
+    height:4em;
+    line-height:4em;
+    background-color: #ffffff;
+}
+.shouye .index .h4{
+    color: black;
+    font-weight:600;
+}
+.shouye .navtar .list-inline{
+    list-style: none;
+    margin: 1.5em 0 1em 0;
+}
+.shouye .navtar .list-inline .li{
+    margin-left:1em;
+    padding:  1em;
+    border-radius:5px;
+   
+}
+.shouye .navtar .list-inline .li i{
+    font-size: 2em;
+    color: #FFFFFF;
+}
+
+.shouye .navtar .list-inline .li a{
+    color: #FFFFFF;
+    font-size: 1.5em;
+}
+.shouye #container{
+    height:40em;
+    width:80em;
+    background-color: #ffffff;
+    border-radius: 5px;
+    margin-left: 1em;
+}
+/* 首页右侧导航结束 */
+
+/* 首页echarts图形开始 */
+.shouye #engineeringAnalysis{
+   height: 40em;
+   width:45em; background-color: #ffffff;
+   border-radius: 5px;
+   margin-left: 1em;
+}
+
+.shouye .chinaMap{
+    margin-top: 1em;
+    height: 30em;
+}
+.shouye .chinaMap #chinaMap{
+    width:40em;
+    height: 31em;
+    margin-left: 1em;
+    background-color:#FFFFFF;
+    border-radius:5px;
+}
+/* 首页echarts图形结束 */
+
+/* 系统管理-系统设置-基本设置 开始*/
+.base{
+    background-color:#F8F8F8;
+}
+.base .head{
+    height: 4em;
+    line-height:4em;
+    font-size: 1.3em;
+}
+
+.base .tips{
+    margin:1em;
+    border: 2px dotted #62B3FF;
+    padding: 1em;
+    border-radius: 5px;
+    background-color:#F5FAFF;
+}
+.base .tips i{
+    color:#62B3FF;
+}
+.base .tips .ti{
+    font-size: 1.2em;
+}
+.base .tips .indent{
+    text-indent:1em;
+}
+
+.base .form{
+    margin:0 1em;
+    background-color: #FFFFFF;
+}
+
+.base .form .table thead{
+    background-color:#F0F6FB;
+    border:1px solid #cccccc;
+  
+}
+.base .form .table thead tr{
+    height: 40px;
+}
+.base .form td,.base .form th{
+    border:1px solid #cccccc;
+}
+
+.base .form .table tbody tr{
+    height:40px;
+}
+.base .form .table tfoot tr{
+    height:40px;
+}
+.base .form .table tfoot tr td{
+    padding-left: 26px;
+  
+}
+.base .form .table tfoot tr td .btn{
+    padding: 8px 20px;
+    background: #1E9FFF;
+    color: #FFFFFF;
+}
+.base .form .table thead tr th:last-child{
+    padding-left: 26px;
+}
+
+.base .form .table tbody tr td .form-control{
+    height: 40px;
+}
+.base .form .table tbody tr td .form-group{
+    margin-bottom: 0px;
+}
+.base .tabs_info{  
+    height: 45px;
+    line-height: 45px;
+    margin-bottom: 1em;
+    border-bottom: 1px solid rgb(98, 179, 255);
+}
+.base .tabs_info span{
+    display: block;
+    height: 45px;
+    width:100px;
+    line-height: 45px;
+    background-color: rgb(98, 179, 255);
+    color:white;
+    text-align: center;
+    border-radius: 4px 4px 0px 0px;
+    margin-left: -15px;
+}
+
+.base .tipss{   
+    padding: 1em;
+    border-radius: 5px;
+   
+}
+.base .tipss ul{
+    height: 35px;
+}
+.base .tipss ul li .form-control{
+    margin-top: 2px;
+    padding: 0px 10px;
+}
+.base .tipss ul li .btn{
+    margin-top: -3px;
+}
+
+/* 管理员折叠 */
+.base .collapseTwo .form td, .base #collapseTwo .form th {
+    border: none;
+}
+
+.base .collapseTwo .admin_screenlist_box {
+    border: 1px solid #eaeaea;
+    margin-top: -15px;
+    position: relative;
+    z-index: 1;
+    background: #fff;
+    display: none;
+}
+.base .collapseTwo .admin_screenlist {
+    padding: 10px 5px 10px 70px;
+    position: relative;
+}
+.base .collapseTwo .admin_screenlist_name {
+    position: absolute;
+    left: 5px;
+    top: 9px;
+    padding: 3px 0px;
+    display: inline-block;
+    width: 70px;
+    text-align: center;
+}
+.base .collapseTwo .admin_screenlist a {
+    display: inline-block;
+    padding: 3px 5px;
+    margin-right: 10px;
+}
+
+.base .collapseTwo .admin_screenlist_cur {
+    background: #31b4e1;
+    color: #fff;
+    display: inline-block;
+    padding: 3px 5px;
+    border-radius: 3px;
+}
+.base .collapseTwo .admin_screenlist a {
+    display: inline-block;
+    padding: 3px 5px;
+    margin-right: 10px;
+}
