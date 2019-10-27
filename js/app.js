@@ -295,6 +295,7 @@ var app = {
 	 * obj.message 提示消息
 	 * obj.uri 跳转的url
 	 * obj.error 显示对应提示的信息样式 错误编号notice_0 notice_1 notice_2 notice_3
+	 * obj.duration 显示多长时间(毫秒)
 	 * function callback 
 	 */
 	notice: function(obj, callback) {
@@ -324,8 +325,8 @@ var app = {
 					"&" + app.serializeParams();
 				location.href = obj.uri;
 			}
-			if (!obj.uri && ('uri' in obj)) location.reload();
-		}, 2000);
+			if (obj && !obj.uri && ('uri' in obj)) location.reload();
+		}, obj.duration || 2000);
 	},
 
 	/**
@@ -422,7 +423,7 @@ var app = {
 	 * 初始化action名称
 	 */
 	initAction: function(dataUri) {
-		var firstLine, firstQ, router;
+		var firstLine, firstQ, router, action;
 		var lastPoint = dataUri.lastIndexOf('.'); //用于判断有没有.com 类似的字符串
 		dataUri = (lastPoint == -1) ? dataUri : dataUri.substr(lastPoint);
 		firstLine = dataUri.indexOf('/');
@@ -430,10 +431,18 @@ var app = {
 		if (firstQ == -1) firstQ = dataUri.length;
 		dataUri = dataUri.substr(firstLine + 1, firstQ - firstLine - 1);
 		router = dataUri.split('/');
-		this.action = (router.length % 2) ? router[2] : router[1];
+		action = (router.length % 2) ? router[2] : router[1];
+		action = action.split("-");
+		action.forEach(function(o, i){
+			if(i > 0){
+				action[i] = o.substring(0, 1).toUpperCase() + o.substring(1);
+			}
+		});
+		this.action = action.join('');
 	},
 
 	/**
+	 * 将请求参数转为对象
 	 * 调用：
 	    parseQuery("userID=JeoOrCXxyiOFxbYaGL40kw==&userPwd=sdFo2ziUw8HyLRKd4i6GAQ==&userName=高聪")
 	    返回:{}
@@ -533,6 +542,101 @@ var app = {
 		},
 	},
 
+/**
+	 * 表单数据验证
+	 * @param {Object} 
+	 */
+	valid: {
+		form: null,
+		valided: true,
+		required: false,
+		init: function(e, me){
+			var validStr,
+			validFuncs = $(me).attr("data-valid");
+			if(!validFuncs) return;
+			if($(me).prop("disabled")) return;
+			app.valid.form = $(me).parentsUntil('form').parent();
+			validFuncs = validFuncs.split("-");
+ 			validFuncs.forEach(function(o, i){
+				validStr = $(me).val()
+				if(!validStr.length) return;
+				
+				if(o in app.valid.funcs.pattern){
+					if(!app.valid.funcs.match(validStr, o)){
+						app.notice({error: 1, message: "数据格式错误！"});
+						$(me).val('');
+						return app.valid.valided = false;
+					}
+				}else{
+					if(o == "require") return;
+					app.notice({error: 1, message: "缺失" + o + "验证函数"});
+					return true;
+				}
+			})
+		},
+		
+		//验证函数
+		funcs: {
+			/**
+			 * 必填验证
+			 */
+			require: function(me){
+				if(me && !$(me).val().length) {
+					app.valid.required = false;
+					return false;
+				}
+				if(!me){
+					app.valid.required = true;
+					$(app.valid.form).find("[type=submit]").prop("disabled", true);
+					$(app.valid.form).find("[data-valid]").each(function(i, o){
+						//针对属性中有require的项进行过滤
+						if($(o).attr("data-valid").match(/require/)){
+							//当必填项为空，用false表示
+							if(!$(o).prop("disabled") && !$(o).val().length) app.valid.required = false;
+						}
+					});
+					//如查没有为空的必填项，让提交按钮可用
+					if(app.valid.required && app.valid.valided){
+						$(app.valid.form).find("[type=submit]").prop("disabled", false);
+					}
+				}
+				return true;
+			},
+			
+			//校验数据
+			match: function(str, pattern) {
+			    pattern = app.valid.funcs.pattern[pattern];
+			    if (str.match(pattern)) return true;
+			    return false;
+			},
+			
+			pattern: {
+				number     : '^[0-9]*$',
+				email      : '^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$',
+				url        : '^((https|http|ftp|rtsp|mms)?:\/\/)[^\s]+',
+				acount     : '^[a-zA-Z][a-zA-Z0-9_]{4,15}$',                                                                                                                                                    //字母开头，允许5-16字节，允许字母数字下划线
+				tel        : '^[a-zA-Z][a-zA-Z0-9_]{4,15}$',                                                                                                                                                    //如 0511-4405222 或 021-87888822
+				qq         : '^[1-9][0-9]{4,}$',                                                                                                                                                                //腾讯QQ号从10000开始    
+				postcode   : '[1-9]d{5}(?!d)',                                                                                                                                                                  //中国邮政编码
+				IDnumber   : 'd{15}|d{18}',                                                                                                                                                                     //匹配身份证
+				ip         : '(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)',   //匹配ip地址
+				upinit     : '^[1-9]d*$',                                                                                                                                                                       //匹配正整数
+				downinit   : '^-[1-9]d*$',                                                                                                                                                                      //匹配负整数
+				allinit    : '^-?[1-9]d*$',                                                                                                                                                                     //匹配整数
+				nodowninit : '^[1-9]d*|0$',                                                                                                                                                                     //匹配非负整数（正整数 + 0）
+				noupinit   : '^-[1-9]d*|0$',                                                                                                                                                                    //匹配非正整数（负整数 + 0）
+				upfloat    : '^[1-9]d*.d*|0.d*[1-9]d*$',                                                                                                                                                        //匹配正浮点数
+				nodownfloat: '^-([1-9]d*.d*|0.d*[1-9]d*)$',                                                                                                                                                     //匹配负浮点数
+				allfloat   : '^-?([1-9]d*.d*|0.d*[1-9]d*|0?.0+|0)$',                                                                                                                                            //匹配浮点数
+				nodownfloat: '^[1-9]d*.d*|0.d*[1-9]d*|0?.0+|0$',                                                                                                                                                //匹配非负浮点数（正浮点数 + 0）
+				noupfloat  : '^(-([1-9]d*.d*|0.d*[1-9]d*))|0?.0+|0$',                                                                                                                                           //匹配非正浮点数（负浮点数 + 0）
+				en_char    : '^[A-Za-z]+$',                                                                                                                                                                     //匹配由26个英文字母组成的字符串
+				zh_char    : '^[\\u4e00-\\u9fa5]+$',    
+				datetime   : '^[1-9]\\d{3}\\/(0[1-9]|1[0-2])\\/(0[1-9]|[1-2][0-9]|3[0-1])\\s+(20|21|22|23|[0-1]\\d):[0-5]\\d:[0-5]\\d$'
+			},
+		}
+	},
+	
 	/**
 	 * 绑定相关事件
 	 */
@@ -611,8 +715,14 @@ var app = {
 		$(el).find("[contenteditable='true']").after('&nbsp;&nbsp;<i class="fa fa-edit"></i>'); //添加编辑标识
 
 		//数据存在记录检测
-		$(el).find("[data-check]").unbind('focusout').on("focusout", function(e) {
+		$(el).find("[data-check]").unbind('change').on("change", function(e) {
 			app.valExistsPorcess(e, this, el);
+		})
+		
+		//绑定数据验证事件
+		$(el).find("[data-valid]").unbind("change").on("change", function(e){
+			app.valid.init(e, this);
+			app.valid.funcs.require();
 		})
 	},
 
@@ -971,6 +1081,24 @@ var effect = {
 	},
 
 	/**
+	 * 设置javascript代码
+	 * html代码结构：
+	 *  <parent>
+	        <div class="form-group col-xs-4">
+	            <tag type="text" class="form-control" name="title" data-js="js代码"/>
+	        </div>
+	        <span style="line-height: 40px;"><i class="iconfont icon-tishi comment" style="color: #1C66A7;"></i>&nbsp;如：新闻</span>
+	    </parent>
+	 */
+	setJavascript: function(selecter) {
+		selecter = selecter || document;
+		$(selecter).find('[data-js]').each(function(index, item) {
+			var js = $(item).attr('data-js');
+			if (typeof js != 'undefined') $(item).after('<script>' + js + '</script>');
+		});
+	},
+
+	/**
 	 * 设置checkbox选项
 	 * @param {*} selecter 
 	 * html代码结构：
@@ -1033,9 +1161,9 @@ var effect = {
 			for (var i = 0; i < key.length; i++) {
 				var curCode = $(htmlCode);
 				if (defVal == key[i]) curCode.find("input[type='radio']").attr('checked', 'checked').parent().addClass('active');
+				curCode.find("input[type='radio']").attr("data-index", i);
 				curCode.find("input[type='radio']").val(key[i]);
 				curCode.find("input[type='radio']").after(val[i]);
-
 				temCode += curCode[0].outerHTML;
 			}
 			$(item).replaceWith(temCode);
@@ -1232,7 +1360,7 @@ var effect = {
 	modal: function(params) {
 		params = params || {};
 		var attr = {
-			type: params.type || 'normal', //模态框样式，暂提供 normalType
+			type: params.type || 'normal', //模态框样式，暂提供 normalType  和 largerype
 			title: params.title || '请选择相关操作', //副标题
 			detail: params.detail || '', //副标题
 			confirm: params.confirm || function() {}, //成功时回调处理  
@@ -1240,7 +1368,7 @@ var effect = {
 		}
 
 		var model = {
-			normal_type: '<div class="modal inmodal" id="normalModal" tabindex="-1" role="dialog" aria-hidden="true">' +
+			normal_type: '<div class="modal inmodal" id="normalModal" tabindex="-1" role="dialog" aria-hidden="true"  style="background:radial-gradient(black, transparent);">' +
 				'<div class="modal-dialog">' +
 				'<div class="modal-content animated bounceInRight">' +
 				'<div class="modal-header">' +
@@ -1258,7 +1386,27 @@ var effect = {
 				'</div>' +
 				'</div>' +
 				'</div>' +
-				'</div>'
+				'</div>',
+				
+			larger_type: '<div class="modal inmodal" id="largerModal" tabindex="-1" role="dialog" aria-hidden="true" style="display: block; padding-right: 6px;background:radial-gradient(black, transparent);">'+
+				'<div class="modal-dialog modal-lg">' +
+					'<div class="modal-content">' +
+						'<div class="modal-header">' +
+							'<button type="button" class="close" data-dismiss="largerModal"><span aria-hidden="true">×</span><span class="sr-only">关闭</span></button>' +
+							'<h4 class="modal-title">' + attr.title + '</h4>' +
+							'<small class="font-bold">' + attr.detail  +
+						'</small></div><small class="font-bold">' +
+						'<div class="modal-body" id="modal-body">' +
+							'<p><strong>H+</strong> 是一个完全响应式，基于Bootstrap3.3.6最新版本开发的扁平化主题</p>' +
+						'</div>' +
+
+						'<div class="modal-footer">' +
+						    '<button type="button" class="btn btn-white" data-dismiss="largerModal">关闭</button>' +
+							'<button type="button" class="btn btn-primary submit" data-confirm="largerModal">确定</button>' +
+						'</div>' +
+					'</small></div><small class="font-bold">' +
+				'</small></div><small class="font-bold">' +
+            '</small></div>'
 		}
 
 		if (!$('body #freeMode').length) $("body").append("<div id='freeMode'></div>");
@@ -1266,14 +1414,14 @@ var effect = {
 		$("button[data-dismiss]").unbind("click").on("click", function() {
 			var modalId = $(this).attr('data-dismiss');
 			attr['close']($("#" + modalId));
-			$("#" + modalId).toggle();
+			$("#" + modalId).fadeOut();
 		});
 		$("button[data-confirm]").unbind("click").on("click", function() {
 			var modalId = $(this).attr('data-confirm');
 			attr['confirm']($("#" + modalId));
-			$("#" + modalId).toggle();
+			$("#" + modalId).fadeOut();
 		});
-		$("#" + attr.type + "Modal").toggle();
+		$("#" + attr.type + "Modal").fadeIn();
 
 	},
 
@@ -1299,19 +1447,19 @@ function xhr5() {
 	this.url = '';
 	this.xhr = null;
 	var that = this;
-	this.req = function(params, callback) {
-		if (this.xhr) {
+	this.ajax = function(params) {
+		if (that.xhr) {
 			console.log("xhr请求已创建");
 			return;
 		}
-		if (!params.uri) return;
-		this.url = params.uri;
-		this.method = params.method || 'GET';
-		this.data = params.data || '';
+		if (!params.url) return;
+		that.url = params.url;
+		that.method = params.type || 'GET';
+		that.data = params.data || {};
 		console.log("创建请求：");
-		this.xhr = new plus.net.XMLHttpRequest();
-		console.log("this is xhr5:::", this.xhr)
-		this.xhr.onreadystatechange = function() {
+		that.xhr = new plus.net.XMLHttpRequest();
+		console.log("this is xhr5:::", that.xhr)
+		that.xhr.onreadystatechange = function() {
 			switch (that.xhr.readyState) {
 				// case 0:
 				// 	console.log("xhr请求已初始化");
@@ -1327,10 +1475,8 @@ function xhr5() {
 				// 	break;
 				case 4:
 					console.log("xhr请求已完成");
-					callback({
-						status: that.xhr.status,
-						response: that.xhr.responseText
-					});
+					if(that.xhr.status == 200) return params.success(that.xhr.responseText);
+					return params.error(that.xhr.responseText);
 					// if (that.xhr.status == 200) {
 					// 	console.log("xhr请求成功：" + that.xhr.responseText);
 					// } else {
@@ -1343,8 +1489,8 @@ function xhr5() {
 		}
 		that.xhr.timeout = params.timeout;
 		that.xhr.open(that.method, that.url);
-		that.xhr.send(that.data);
-
+		that.xhr.setRequestHeader('Content-Type','application/json');
+		that.xhr.send(JSON.stringify(that.data));
 	}
 
 	this.responseHeader = function() {
@@ -1404,6 +1550,7 @@ function setFrame(id) {
 function getItem(tag) {
 	var query_params = $.md5(location.pathname);
 	tag = tag || query_params;
+	if(typeof plus == 'undefined') plus = undefined;
 	var storage = plus ? plus.storage : sessionStorage;
 	var str = storage.getItem(tag);
 	try {
@@ -1420,6 +1567,7 @@ function setItem(name, data) {
 		data = JSON.stringify(data);
 	} catch (e) {}
 	//if(typeof data === 'object') data = JSON.stringify(data);
+	if(typeof plus == 'undefined') plus = undefined;
 	var storage = plus ? plus.storage : sessionStorage;
 	storage.setItem(name, data);
 }
@@ -1505,7 +1653,8 @@ function mergeObj(objs) {
  * array array 被查找的多个对象的数组
  * key1 用于匹配的键
  * value 用于匹配的键对应的值,格式为：'比较运算符值',如：'>=10'。表示查找value为大于等于10的项，
- * 可用比较运算符有：>、<、=、<>、>=、<=、!=
+ * 可用比较运算符有：>、<、=、<>、>=、<=、!=  也可以是一个返回boolen值的函数，传入参数为当前被
+ * 比较的值，
  * key2 string  null | key2  null 返回匹配对象， key2 返回匹配对象中 key2 的值
  * all boolean true 返回所有匹配的集合，false 返回第一次匹配               
  */
@@ -1519,9 +1668,13 @@ function treeValue(array, key1, value, key2, all) {
 	}
 	var temObj = [];
 	var valStr = value + '';
-	var tag = valStr.match(/(^[!=<>]{1,3})/g);
-	if (tag) value = valStr.substr(tag.length + 1);
-	tag = tag ? tag[0] : '==';
+	var valueIsFunc = true;  		//标识value是否为函数
+	if(typeof value != 'function'){
+		valueIsFunc = false;
+		var tag = valStr.match(/(^[!=<>]{1,3})/g);
+		if (tag) value = valStr.substr(tag.length + 1);
+		tag = tag ? tag[0] : '==';
+	}
 	for (var i in array) {
 		var item = array[i];
 		for (var k in item) {
@@ -1531,6 +1684,8 @@ function treeValue(array, key1, value, key2, all) {
 				mergeObj([temObj, values]):
 					temObj = values;
 			} else {
+				valueIsFunc ?
+				temB = value(array[i][key1]) :
 				eval(('temB = (array[i][key1]' + tag + 'value)'));
 				if (!temB) continue;
 				if (!all) return key2 ? array[i][key2] : array[i];
@@ -1580,7 +1735,7 @@ function getStandardDate(date, defaultVal) {
 function dateFormate(formate, time) {
 	var date = new Date(time);
 	var Y = date.getFullYear();
-	var m = date.getMonth() > 9 ? date.getMonth() + 1 : '0' + (date.getMonth() + 1);
+	var m = date.getMonth() > 8 ? date.getMonth() + 1 : '0' + (date.getMonth() + 1);
 	var d = date.getDate() > 9 ? date.getDate() : '0' + date.getDate();
 	var H = date.getHours();
 	var M = date.getMinutes();
@@ -1620,7 +1775,7 @@ function unique(arr) {
 }
 
 /**
- * 扩展Array方法, 去除数组中空白数据
+ * 扩展Array方法, 去除数组中空数据
  * 调用方法
     var a = [1, 2, undefined, 4, "", 5, null, 7, 0, 8];
     var b = a.notempty();
@@ -1896,7 +2051,7 @@ if (typeof Object.values == 'undefined') {
 }
 
 /**
- * 删除数据元素，从第一个val开始的n个元素
+ * 删除数组元素，从第一个val开始的n个元素
  */
 if (typeof Array.remove == 'undefined') {
 	Array.prototype.remove = function(val,n) {

@@ -184,6 +184,7 @@ function ViewData(params){
     }
     
     this.init = function(){
+		var that = this;
         if(that.dev === 'exit') return;
         //请求并渲染数据
         //渲染数据
@@ -207,46 +208,31 @@ function ViewData(params){
                 return;
             }
 			
+			var reqData = {
+				url:  that.host + that.uri,
+				data: that.data,
+				type: "POST",
+				success: function(results){
+					console.log("success::::",results)
+					that.setRespons(results);
+					if(!that.results) return;
+					setDLData(that.queryStr(),that.results);
+					that.run();
+				},
+				error: function(results){
+					console.log("error::::",results);
+					that.results = results;
+					if(that.dev === 'on') that.log(that.results);
+					if(typeof that.error === "function") that.error(that.results);
+				}
+			};
 			if(typeof plus == 'undefined'){
-				$.ajax({
-					url:  that.host + that.uri,
-					data: that.data,
-					dataType: "text",
-					type: "POST",
-					async: that.async,
-					success: function(results){
-						console.log("success::::",results)
-						that.setRespons(results);
-						if(!that.results) return;
-						setDLData(that.queryStr(),that.results);
-						that.run();
-					},
-					error: function(results){
-						console.log("error::::",results);
-						that.results = results;
-						if(that.dev === 'on') that.log(that.results);
-						if(typeof that.error === "function") that.error(that.results);
-					}
-				});
+				reqData.dataType = "text";
+				reqData.async = that.async;
+				$.ajax(reqData);
 			}else{
-				(new xhr5()).req({
-					uri: that.host + that.uri,
-					timeout: that.timeout,
-					method: "POST"
-				},function(results){
-					if(results.status == 200){
-						results = results.response;
-						that.setRespons(results);
-						if(!that.results) return;
-						setDLData(that.queryStr(),that.results);
-						that.run();
-					}else{
-						results = results.responseText;
-						that.results = results;
-						if(that.dev === 'on') that.log(that.results);
-						if(typeof that.error === "function") that.error(that.results);
-					}
-				});
+				reqData.timeout = that.timeout;
+				(new xhr5()).ajax(reqData);
 			}
         }
     }
@@ -474,7 +460,6 @@ function ViewData(params){
 
     return this;
 }
-
 
 /**
  * 暂存接口返回的数据

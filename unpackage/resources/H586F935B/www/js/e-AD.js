@@ -4,6 +4,7 @@
 var conf = {
 	httpHost: "http://192.168.0.114:3005",
 	wsHost: "ws://192.168.0.114:3005",
+	macid: 1,
 	promotionalPath: "_www/video/company/promotional/01.mp4", //宣传片路径
 	downloadOption: {
 		method: 'GET',
@@ -567,12 +568,13 @@ function plusReady() {
 	//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
 	//在任务执行节点处将执行结果反馈webSocket服务器->webSocket服务将信息体现在设备状态列表
 	var data = {
-		device_model: plus.device.model,
-		device_vendor: plus.device.vendor,
-		device_imei: plus.device.imei,
-		device_uuid: plus.device.uuid
+		mode: plus.device.model,
+		vendor: plus.device.vendor,
+		imei: plus.device.imei,
+		uuid: plus.device.uuid,
 	};
-	data.device_sn = $.md5(Object.values(data).join(''));
+	data.macid = conf.macid
+	data.sn = $.md5(Object.values(data).join(''));
 	views.init();
 	server.init(data);
 	download.startAll();
