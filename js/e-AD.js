@@ -88,6 +88,7 @@ var ws = {
 	rebuildTime: 60000, //得建ws连接时间
 	//初始化webSocket服务
 	initWs: function() {
+		if(ws.connection) return app.notice({error: 0, message: "ws已经连接。"});
 		//创建webSocket连接
 		ws.connection = new WebSocket(ws.host, ws.protocol);
 		ws.connection.onopen = function() {
@@ -100,7 +101,7 @@ var ws = {
 				ws.connection.send(JSON.stringify(obj));
 			}
 			//请求播放任务
-			ws.send({
+			ws.send({ 
 				action: '/api/task/list',
 				data: {
 					unid: getItem('unid')
@@ -114,7 +115,8 @@ var ws = {
 	//收到消息的处理方法
 	onMsg: function(msg) {
 		msg = msg.data;
-		//业务逻辑信息处理.处理方法写到process对象
+		print_r(msg);
+		//业务逻辑信息处理.处理方法写到process对象 
 		if (msg.error) return app.notice(msg);
 		msg = JSON.parse(msg);
 		//储存持久任务列表
@@ -462,12 +464,14 @@ function video() {
 		//如果不存在则需要下载
 		//下载期间则播放公司宣传片
 		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
+		//alert("正在播放视频url："+url);
 		localUrl = server.localUrl(url);
 		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, function(entry) {
 			//如果不存在则需要下载
 			if (!entry.isFile) return me.playDown(obj, url);
 			//存在则进行播放 
 			obj.style.src = entry.toRemoteURL();
+			app.notice({error: 0, message:"正在播放视频url："+obj.style.src+ "状态："+ entry.isFile});
 			me.playStart(obj.style);
 			var videoTimer = setTimeout(function() {
 				clearTimeout(videoTimer);
@@ -541,11 +545,10 @@ function img() {
 	this.play = function() {
 		var obj = me.lists;
 		//视频播放列表
-		var url = obj.list[me.num].url;
-		if (url && url.length > 0) {
-			if (!url.match(/(http:)|(https:)/)) url = server.host + url;
-			$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
-		}
+		var url = obj.list[me.num] ? obj.list[me.num].url : "";
+		if (!url || !url.length) return;
+		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
+		$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
 		var imgTimer = setTimeout(function() {
 			clearTimeout(imgTimer);
 			process.timeout.remove(imgTimer,1);
@@ -576,7 +579,8 @@ function plusReady() {
 	data.macid = conf.macid;
 	data.sn = $.md5(Object.values(data).join(''));
 	views.init();
-	server.init(data);
+	//第一次使用，获清空缓存后使用，发起注册请求
+	getItem('unid') ? ws.initWs() : server.init(data);
 	download.startAll();
 }
 
