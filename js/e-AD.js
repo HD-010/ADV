@@ -53,7 +53,7 @@ var server = {
 		
 		function err(){
 			try{
-				//具备离线播放条件，而且与服务器连接失败的情况下转为离线播放
+				//与服务器连接失败，而且具备离线播放条件的情况下转为离线播放
 				if(getItem('unid') && 
 				getItem("task_list") &&
 				process.state != 'play') {
@@ -62,7 +62,7 @@ var server = {
 					process.persistent = false;
 					process.task_list();
 				}
-				//离线播放，则无限尝试与服务器连接获取数据
+				//离线播放，则无限次尝试与服务器连接获取数据
 				if (!server.status) server.init(data);
 			}catch(e){}  
 		}
@@ -115,7 +115,6 @@ var ws = {
 	//收到消息的处理方法
 	onMsg: function(msg) {
 		msg = msg.data;
-		print_r(msg);
 		//业务逻辑信息处理.处理方法写到process对象 
 		if (msg.error) return app.notice(msg);
 		msg = JSON.parse(msg);
@@ -572,10 +571,11 @@ function plusReady() {
 	//在任务执行节点处将执行结果反馈webSocket服务器->webSocket服务将信息体现在设备状态列表
 	var data = {
 		mode: plus.device.model,
-		vendor: plus.device.vendor,
-		imei: plus.device.imei || 'virtaul',
-		uuid: plus.device.uuid || 'virtaul',
+		vendor: plus.device.vendor == 'Unknown',//虚拟环境可能不存在
+		imei: plus.device.imei || 'virtaul',	//虚拟环境可能不存在
+		uuid: plus.device.uuid || 'virtaul',	//虚拟环境可能不存在
 	};
+	if( data.vendor == 'Unknown') data.vendor = 'virtaul';
 	data.macid = conf.macid;
 	data.sn = $.md5(Object.values(data).join(''));
 	views.init();
@@ -586,6 +586,6 @@ function plusReady() {
 
 // 如其名
 function test() {
-	return
+	return;
 }
 
