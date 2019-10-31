@@ -88,7 +88,7 @@ var ws = {
 	host: conf.wsHost,
 	protocol: 'echo-protocol',
 	connection: null,
-	rebuildTime: 60000, //得建ws连接时间
+	rebuildTime: 10000, //得建ws连接时间
 	//初始化webSocket服务
 	initWs: function() {
 		if(ws.connection) return app.notice({error: 0, message: "ws已经连接。"});
@@ -96,10 +96,7 @@ var ws = {
 		ws.connection = new WebSocket(ws.host, ws.protocol);
 		ws.connection.onopen = function() {
 			//连接成功提示信息
-			app.notice({
-				error: 0,
-				message: 'ws连接成功'
-			})
+			console.log("=====ws"+getItem('unid')+'ws连接成功')
 			ws.send = function(obj) {
 				ws.connection.send(JSON.stringify(obj));
 			}
@@ -118,54 +115,37 @@ var ws = {
 	//收到消息的处理方法
 	onMsg: function(msg) {
 		msg = msg.data;
+		console.log("============ONMESSAGE==========" + JSON.stringify(msg))
 		//业务逻辑信息处理.处理方法写到process对象 
 		if (msg.error) return app.notice(msg);
 		msg = JSON.parse(msg);
 		//储存持久任务列表
 		process.storTask(msg);
-		if (msg.type in process) {
-			//设置当前任务属性
-			process.persistent = msg.persistent;
-			//执行插播任务
-            if (!msg.persistent) return process[msg.type](msg);
-			//循环执行播放列表任务
-			if (msg.persistent) {
-				process.state = "play";
-				return process[msg.type]();
-			}
-		}
-		app.notice({
-			error: 1,
-			message: "没有" + msg.type + "任务的处理机制！"
-		});
+		//下载任务初始化
+		download.initTask(msg);
+		//任务清单对象下载初始化
+		//任务任务列表
+		process.initTask(msg);
 	},
 	//服务关闭的处理方法
 	onClo: function(clo) {
+		console.log("=====wsws连接关闭");
 		//自动重建ws连接
 		ws.rebuildWs();
 	},
 	//服务出错的处理方法
 	onErr: function(err) {
-		//尝试重新发送信息1次。如果还是错误,反馈到设备列表状态
+		console.log("=====ws连接错误，正在进行连接。。。");
 		ws.rebuildWs();
-		if(!ws.connection) return;
-		var errWs = setTimeout(function(){
-			clearTimeout(errWs);
-			ws.sned({
-				action: '/api/device/err',
-				data: {
-					error: 1,
-					unid: getItem('unid'),
-					message: err
-				}
-			});
-		}, 59000);
 	},
 	//重建ws服务
 	rebuildWs: function() {
 		ws.connection = null;
 		var rebuildWs = setInterval(function() {
-			if (ws.connection) return clearInterval(rebuildWs)
+			if (ws.connection) {
+				console.log("=====ws重新连接成功");
+				return clearInterval(rebuildWs)
+			}
 			ws.initWs();
 		}, ws.rebuildTime)
 	}
@@ -200,36 +180,70 @@ var views = {
  */
 var download = {
 	task: [],
+	//下载队列
+	queue: [],
+	//下载任务初始化
+	initTask: function(msg){
+		if(msg.error) return;
+		if(!msg.persistent) return;
+		if(msg.type != 'task_list') return;
+		//获取列表中的所有url
+		var url = treeValue(msg.list,'url', function(url){
+			return url ? true : false;
+		},'url', 'all');
+		this.queue = unique(url);
+		console.log("==================所有需要下载的资源："+ JSON.stringify(this.queue));
+		download.init();
+	},
 	// 创建下载任务
 	// url ： 绝对路径（http://xxxx/filename）
 	// 如： url = server.host + url
 	// 调用： download.init(url);
-	init: function(url) {
-		var option = {
-				method: conf.downloadOption.method,
-				data: conf.downloadOption.data,
-				filename: conf.downloadOption.filename + server.localUrl(url),
-				priority: conf.downloadOption.priority,
-				timeout: conf.downloadOption.timeout,
-				retry: conf.downloadOption.retry,
-				retryInterval: conf.downloadOption.retryInterval
+	init: function() {
+		console.log("=============当前下载队列："+JSON.stringify(this.queue));
+		var url = this.queue[0];
+		if(!url.match(/(http:)|(https:)/)) url = server.host + url;
+		var localUrl = server.localUrl(url);
+		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, 
+			function(entry) {
+				//如果该文件存在，则下载下队列中的下一个文件
+				console.log("===="+conf.downloadOption.filename + localUrl+"文件存在");
+				download.queue.shift();
+				if(download.queue.length) download.init();
+			},
+			function(e){
+				console.log("====正在下载："+conf.downloadOption.filename + localUrl);
+				var option = {
+					method: conf.downloadOption.method,
+					data: conf.downloadOption.data,
+					filename: conf.downloadOption.filename + server.localUrl(url),
+					priority: conf.downloadOption.priority,
+					timeout: conf.downloadOption.timeout,
+					retry: conf.downloadOption.retry,
+					retryInterval: conf.downloadOption.retryInterval
+				}
+				var task = plus.downloader.createDownload(url, option);
+				task.addEventListener("statechanged", download.stateChanged, false);
+				task.start();
+				download.task.push(task);
 			}
-		var task = plus.downloader.createDownload(url, option);
-		task.addEventListener("statechanged", download.stateChanged, false);
-		task.start();
-		download.task.push(task)
+		);
 	},
 	// 监听下载任务状态
-	stateChanged: function(download, status) {
+	stateChanged: function(downloadObj, status) {
 		//下载的文件大小，则
-		if(download.state == 3  && status == 200){
-			if(download.totalSize < 100) {
-				download.abort();
-				console.log("==========Download faild and cancled"+ download.totalSize  +"========== ");
+		if(downloadObj.state == 3  && status == 200){
+			if(downloadObj.totalSize < 100) {
+				downloadObj.abort();
 			}
 		}
 		// 下载完成, 清除缓存文件
-		if (download.state == 4 && status == 200) download.abort();
+		if (downloadObj.state == 4 && status == 200) {
+			console.log("==============::" + downloadObj.filename + "下载完成");
+			downloadObj.abort();
+			download.queue.shift();
+			if(download.queue.length) download.init();
+		}
 	},
 	// 暂停下载任务 
 	pause: function() {
@@ -341,6 +355,27 @@ var process = {
 	timeout:[],
 	//任务控制状态 有停止状态stop， 播放状态play(默认)
 	state: '',
+	
+	/**
+	 * 播放任务初始化
+	 */
+	initTask: function(msg){
+		if (msg.type in process) {
+			//设置当前任务属性
+			process.persistent = msg.persistent;
+			
+		    msg.persistent ? 
+			//循环执行列表任务
+			process[msg.type]():
+			//执行一次性任务
+			process[msg.type](msg);
+			return true;
+		}
+		app.notice({
+			error: 1,
+			message: "没有" + msg.type + "任务的处理机制！"
+		});
+	},
 
 	/**
 	 * 暂存数据
@@ -385,7 +420,8 @@ var process = {
 		}
 		
 		taskList = officialTask || reserveTask;		//执行最后一次下发的任务
-		return taskList.list;
+		//return taskList.list;
+		return taskList;
 	},
 	
 	/**
@@ -396,7 +432,8 @@ var process = {
 		if(!taskList) return;
 		var currentTime = (new Date()).valueOf();
 		//备用任务个数
-		var reserveTask = array2value(taskList,'endTime', '0', all).length;
+		var reserveTask = array2value(taskList,'endTime', '0', 'all');
+		reserveTask = reserveTask ? reserveTask.length : 0;
 		for(var i = 0; i > taskList.length; i ++){
 			var endTime = taskList[i].endTime;
 			//保留最后一次下发的永久循环任务endTime： 0
@@ -417,37 +454,40 @@ var process = {
 	 */
 	task_list: function(data) {
 		data = data || process.readTask(); //优先执行插播任务的任务列表
-		if (!data) {
+		if (!data.list.length) {
 			return app.notice({
 				error: 1,
 				message: "播放任务为空！"
 			});
 		}
+		//当前任务主体
+		var task,lists;
 		//初始化任务列表
 		process.tasks = {};
 		//销毁之前的播放器对象
 		player.distruct();
 		//初始化定时器
 		process.clearTimeout();
-		//当前任务主体
-		var task;
 		$("#contents").html('');
-		for (var i = 0; i < data.length; i++) {
-			if (!data[i].enable) continue;
-			if(!data[i].type in process) continue;
-			eval(('var typeFunc = ' + data[i].type));    //引用函数img|notice|video
+		//设备任务为播放状态
+		process.state = "play";
+		lists = data.list;
+		for (var i = 0; i < lists.length; i++) {
+			if (!lists[i].enable) continue;
+			if(!lists[i].type in process) continue;
+			eval(('var typeFunc = ' + lists[i].type));    //引用函数img|notice|video
 			if (typeof typeFunc != 'function') continue;
 			//将任务内容装到任务主体
-			task = $(views[data[i].type])[0].outerHTML;
+			task = $(views[lists[i].type])[0].outerHTML;
 			//加载附加样式
-			task = $(task).attr('data-tag', data[i].taskTag);
-			if (data[i].style) task.css(data[i].style);
+			task = $(task).attr('data-tag', lists[i].taskTag);
+			if (lists[i].style) task.css(lists[i].style);
 			//将任务主体索引到任务主体对象列表
 			$("#contents").append(task);
 			//实现媒体功能
-			process.tasks[data[i].taskTg] = new typeFunc();
-			process.tasks[data[i].taskTg].lists = data[i];
-			process.tasks[data[i].taskTg].play();
+			process.tasks[lists[i].taskTg] = new typeFunc();
+			process.tasks[lists[i].taskTg].lists = lists[i];
+			process.tasks[lists[i].taskTg].play(data.persistent);
 		}
 	},
 
@@ -514,8 +554,42 @@ var video = function() {
 	this.lists = {};
 	//节目序号
 	this.num = 0;
-	//播放列表
-	this.play = function() {
+	this.play = function(persistent){
+		persistent ? this.foolPlay() : this.intubatePlay();
+	}
+	//插播
+	this.intubatePlay = function(){
+		var me = this;
+		//视频播放列表
+		var obj = this.lists;
+		var url = obj.list[this.num].url;
+		var entry = null; 
+		//如果当前url不存在，直接播放下一首,
+		if (!url || !url.length) {
+			this.num++;
+			if (obj.list.length > this.num) return me.play(obj);
+			//当所有url均为空时，停止video播放
+			player.self.stop();
+		}
+		//指定广告的播放时长
+		var duration = obj.list[me.num].duration;
+		obj.style.src = server.host + url;
+		me.playStart(obj.style);
+		var videoTimer = setTimeout(function() {
+			clearTimeout(videoTimer);
+			process.timeout.remove(clearTimeout,1);
+			if (me.num < obj.list.length) {
+				if(process.state == 'play') me.play();
+			}else{
+				if(!process.persistent) process.task_list();
+			}
+		}, duration * 1000);
+		process.timeout.push(videoTimer);
+		if ((me.num == (obj.list.length-1)) && process.persistent) return me.num = 0;
+		me.num++;
+	}
+	//循环播放列表
+	this.foolPlay = function() {
 		var me = this;
 		//视频播放列表
 		var obj = this.lists;
@@ -535,8 +609,9 @@ var video = function() {
 		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 		//alert("正在播放视频url："+url);
 		localUrl = server.localUrl(url);
-		
+		console.log("====正在播放："+conf.downloadOption.filename + localUrl);
 		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, function(entry) {
+			console.log("00000*****");
 			//存在则进行播放 
 			plus.io.getVideoInfo({
 				filePath: conf.promotionalPath,
@@ -545,7 +620,6 @@ var video = function() {
 					//如果没有指定广告的播放时长，则以视频的实际播放时长进行播放
 					var duration = obj.list[me.num].duration || infor.duration;
 					obj.style.src = entry.toRemoteURL();
-					console.log("=========正在播放视频url："+obj.style.src+ "状态："+ entry.isFile + "========");
 					me.playStart(obj.style);
 					var videoTimer = setTimeout(function() {
 						clearTimeout(videoTimer);
@@ -562,9 +636,11 @@ var video = function() {
 				},
 			});
 		}, function(e) {
+			console.log("====error："+JSON.stringify(e));
 			plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry){
+				console.log("====正在播放宣传片："+conf.promotionalPath);
 				//下载期间则播放公司宣传片
-				//如果不存在则播放公司宣传片
+				//如果不存在则播放公司宣传片(按实际播放时长)
 				plus.io.getVideoInfo({
 					filePath: conf.promotionalPath,
 					success: function(infor){
@@ -575,7 +651,8 @@ var video = function() {
 							clearTimeout(promotionalTimeout);
 							process.timeout.remove(promotionalTimeout,1);
 							process.task_list();
-						}, infor.duration * 1000);
+						//}, infor.duration * 1000);
+						}, 10 * 1000);
 						process.timeout.push(promotionalTimeout);
 					}
 				});
@@ -591,7 +668,7 @@ var video = function() {
 				 process.timeout.push(nullTimeout);
 			});
 		});
-	},
+	}
 	
 	this.playStart = function(options){
 		player.self.setOptions(options);
