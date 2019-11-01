@@ -55,16 +55,6 @@ var server = {
 		
 		function err(){
 			try{
-				//与服务器连接失败，而且具备离线播放条件的情况下转为离线播放
-				var taskList = getItem("task_list") || [];
-				if(getItem('unid') && 
-				taskList[taskList.length-1] &&		//执行最后一次下发的任务
-				process.state != 'play') {
-					process.state = 'play';
-					//设置当前任务属性
-					process.persistent = false;
-					process.task_list();
-				}
 				//离线播放，则无限次尝试与服务器连接获取数据
 				if (!server.status) server.init(data);
 			}catch(e){}  
@@ -233,6 +223,7 @@ var download = {
 	stateChanged: function(downloadObj, status) {
 		//下载的文件大小，则
 		if(downloadObj.state == 3  && status == 200){
+			//console.log("已下载：" + downloadObj.filename + parseFloat(downloadObj.downloadedSize)/parseFloat(downloadObj.totalSize)*100 + '%' );
 			if(downloadObj.totalSize < 50) {
 				downloadObj.abort();
 			}
@@ -516,6 +507,17 @@ var process = {
 			clearTimeout(process.timeout[i]);
 			process.timeout.remove(process.timeout[i]);
 		}
+	},
+	
+	//具备离线播放条件的情况下启动进入离线播放,
+	//在连接服务器成功并获取数据后，执行指定任务
+	offlinePlay: function(){
+		if(process.readTask() && !process.state) {
+			process.state = 'play';
+			//设置当前任务属性
+			process.persistent = false;
+			process.task_list();
+		}
 	}
 };
 
@@ -732,6 +734,8 @@ var img = function() {
  */
 function plusReady() {
 	plus.device.setWakelock(true);
+	//具备离线播放条件的情况下启动进入离线播放
+	process.offlinePlay();
 	//创建服务器连接
 	//流程:客户端启动完成->拿客户端标识到服务端注册->服务器返回注册完成后的客户端对应的数据表id号->
 	//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
