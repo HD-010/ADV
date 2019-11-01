@@ -105,7 +105,7 @@ var ws = {
 	//收到消息的处理方法
 	onMsg: function(msg) {
 		msg = msg.data;
-		console.log("============ONMESSAGE==========" + JSON.stringify(msg))
+		//console.log("============ONMESSAGE==========" + JSON.stringify(msg))
 		//业务逻辑信息处理.处理方法写到process对象 
 		if (msg.error) return app.notice(msg);
 		msg = JSON.parse(msg);
@@ -182,7 +182,7 @@ var download = {
 			return url ? true : false;
 		},'url', 'all');
 		this.queue = unique(url);
-		console.log("==================所有需要下载的资源："+ JSON.stringify(this.queue));
+		//console.log("==================所有需要下载的资源："+ JSON.stringify(this.queue));
 		download.init();
 	},
 	// 创建下载任务
@@ -190,7 +190,7 @@ var download = {
 	// 如： url = server.host + url
 	// 调用： download.init(url);
 	init: function() {
-		console.log("=============当前下载队列："+JSON.stringify(this.queue));
+		//console.log("=============当前下载队列："+JSON.stringify(this.queue));
 		var url = this.queue[0];
 		if(!url.match(/(http:)|(https:)/)) url = server.host + url;
 		var localUrl = server.localUrl(url);
@@ -202,7 +202,7 @@ var download = {
 				if(download.queue.length) download.init();
 			},
 			function(e){
-				console.log("====正在下载："+conf.downloadOption.filename + localUrl);
+				//console.log("====正在下载："+conf.downloadOption.filename + localUrl);
 				var option = {
 					method: conf.downloadOption.method,
 					data: conf.downloadOption.data,
@@ -345,7 +345,8 @@ var process = {
 	timeout:[],
 	//任务控制状态 有停止状态stop， 播放状态play(默认)
 	state: '',
-	
+	//任务类型
+	type: [],
 	/**
 	 * 播放任务初始化
 	 */
@@ -367,6 +368,12 @@ var process = {
 		});
 	},
 
+	//设置媒体类型
+	setType: function(type){
+		this.type.push(type);
+		this.type = unique(this.type);
+	},
+	
 	/**
 	 * 暂存数据
 	 * 被暂存的数据需要有 persistent = true 标识
@@ -475,10 +482,11 @@ var process = {
 			//将任务主体索引到任务主体对象列表
 			$("#contents").append(task);
 			//实现媒体功能
-			process.tasks[lists[i].taskTg] = new typeFunc();
-			process.tasks[lists[i].taskTg].lists = lists[i];
-			process.tasks[lists[i].taskTg].persistent = data.persistent;
-			process.tasks[lists[i].taskTg].play();
+			process.setType(lists[i].type);
+			process.tasks[lists[i].taskTag] = new typeFunc();
+			process.tasks[lists[i].taskTag].lists = lists[i];
+			process.tasks[lists[i].taskTag].persistent = data.persistent;
+			process.tasks[lists[i].taskTag].play();
 		}
 	},
 
@@ -525,6 +533,7 @@ var process = {
  * 消息任务执行成员
  */
 var notice = function() {
+	console.log("===========type:" +JSON.stringify(process.type));
 	var me = this;
 	this.lists = {};
 	//节目序号
@@ -539,7 +548,15 @@ var notice = function() {
 		var noticeTimer = setTimeout(function() {
 			clearTimeout(noticeTimer);
 			process.timeout.remove(noticeTimer,1)
-			if (process.state == 'play') me.play();
+			//如果没有视频，则由notice决定切换任务
+			if(!(process.type.indexOf('video') + 1)){
+				if (me.num < obj.list.length) {
+					if(process.state == 'play') me.play();
+				}else{
+					if(!process.persistent) process.task_list();
+				}
+			}
+			//if (process.state == 'play') me.play();
 		}, obj.list[me.num].duration * 1000);
 		process.timeout.push(noticeTimer);
 		if (me.num == (obj.list.length - 1)) return me.num = 0;
@@ -702,7 +719,7 @@ var img = function() {
 		plus.io.resolveLocalFileSystemURL(rurl, 
 			function(entry) {
 				var absUrl = plus.io.convertLocalFileSystemURL(rurl);
-				console.log("====本地图片："+absUrl);
+				//console.log("====本地图片："+absUrl);
 				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', "file://" + absUrl);
 				var imgTimer = setTimeout(function() {
 					clearTimeout(imgTimer);
@@ -714,7 +731,7 @@ var img = function() {
 				me.num++;
 			},
 			function(e){
-				console.log("====远程图片："+url+JSON.stringify(e));
+				//console.log("====远程图片："+url+JSON.stringify(e));
 				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
 				var imgTimer = setTimeout(function() {
 					clearTimeout(imgTimer);
