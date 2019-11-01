@@ -11,7 +11,7 @@ var conf = {
 	downloadOption: {
 		method: 'GET',
 		data: '',
-		filename: "_downloads/",
+		filename: "_documents/",
 		priority: 0,
 		timeout: 120,
 		retry: 59,
@@ -233,14 +233,13 @@ var download = {
 	stateChanged: function(downloadObj, status) {
 		//下载的文件大小，则
 		if(downloadObj.state == 3  && status == 200){
-			if(downloadObj.totalSize < 100) {
+			if(downloadObj.totalSize < 50) {
 				downloadObj.abort();
 			}
 		}
 		// 下载完成, 清除缓存文件
 		if (downloadObj.state == 4 && status == 200) {
 			console.log("==============::" + downloadObj.filename + "下载完成");
-			downloadObj.abort();
 			download.queue.shift();
 			if(download.queue.length) download.init();
 		}
@@ -487,7 +486,8 @@ var process = {
 			//实现媒体功能
 			process.tasks[lists[i].taskTg] = new typeFunc();
 			process.tasks[lists[i].taskTg].lists = lists[i];
-			process.tasks[lists[i].taskTg].play(data.persistent);
+			process.tasks[lists[i].taskTg].persistent = data.persistent;
+			process.tasks[lists[i].taskTg].play();
 		}
 	},
 
@@ -552,10 +552,12 @@ var notice = function() {
 var video = function() {
 	player.init();
 	this.lists = {};
+	this.persistent = false;
 	//节目序号
 	this.num = 0;
-	this.play = function(persistent){
-		persistent ? this.foolPlay() : this.intubatePlay();
+	this.play = function(){
+		//插播使用远程资源，循环播放使用本地已经下载好的资源
+		this.persistent ? this.foolPlay() : this.intubatePlay();
 	}
 	//插播
 	this.intubatePlay = function(){
@@ -608,66 +610,69 @@ var video = function() {
 		//下载期间则播放公司宣传片
 		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 		//alert("正在播放视频url："+url);
-		localUrl = server.localUrl(url);
+		var localUrl = server.localUrl(url);
 		console.log("====正在播放："+conf.downloadOption.filename + localUrl);
-		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, function(entry) {
-			console.log("00000*****");
-			//存在则进行播放 
-			plus.io.getVideoInfo({
-				filePath: conf.promotionalPath,
-				success: function(infor){
-					//infor: {resolution:"1280*720",width:"1280",height:"720",size:84758721,duration:"241.80"}
-					//如果没有指定广告的播放时长，则以视频的实际播放时长进行播放
-					var duration = obj.list[me.num].duration || infor.duration;
-					obj.style.src = entry.toRemoteURL();
-					me.playStart(obj.style);
-					var videoTimer = setTimeout(function() {
-						clearTimeout(videoTimer);
-						process.timeout.remove(clearTimeout,1);
-						if (me.num < obj.list.length) {
-							if(process.state == 'play') me.play();
-						}else{
-							if(!process.persistent) process.task_list();
-						}
-					}, duration * 1000);
-					process.timeout.push(videoTimer);
-					if ((me.num == (obj.list.length-1)) && process.persistent) return me.num = 0;
-					me.num++;
-				},
-			});
-		}, function(e) {
-			console.log("====error："+JSON.stringify(e));
-			plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry){
-				console.log("====正在播放宣传片："+conf.promotionalPath);
-				//下载期间则播放公司宣传片
-				//如果不存在则播放公司宣传片(按实际播放时长)
+		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, 
+			function(entry) {
+				console.log("====fool本地:" + localUrl);
+				//存在则进行播放 
 				plus.io.getVideoInfo({
 					filePath: conf.promotionalPath,
 					success: function(infor){
 						//infor: {resolution:"1280*720",width:"1280",height:"720",size:84758721,duration:"241.80"}
+						//如果没有指定广告的播放时长，则以视频的实际播放时长进行播放
+						var duration = obj.list[me.num].duration || infor.duration;
 						obj.style.src = entry.toRemoteURL();
 						me.playStart(obj.style);
-						var promotionalTimeout = setTimeout(function() {
-							clearTimeout(promotionalTimeout);
-							process.timeout.remove(promotionalTimeout,1);
-							process.task_list();
-						//}, infor.duration * 1000);
-						}, 10 * 1000);
-						process.timeout.push(promotionalTimeout);
-					}
+						var videoTimer = setTimeout(function() {
+							clearTimeout(videoTimer);
+							process.timeout.remove(clearTimeout,1);
+							if (me.num < obj.list.length) {
+								if(process.state == 'play') me.play();
+							}else{
+								if(!process.persistent) process.task_list();
+							}
+						}, duration * 1000);
+						process.timeout.push(videoTimer);
+						if ((me.num == (obj.list.length-1)) && process.persistent) return me.num = 0;
+						me.num++;
+					},
 				});
-			}, function(e) {
-				//当宣传片都没有，就只能停下来了。但停下来
-				//alert("宣传片都没有，就只能停下来了"+ conf.promotionalPath);
-				player.self.stop();
-				var nullTimeout = setTimeout(function() {
-					clearTimeout(nullTimeout);
-					process.timeout.remove(nullTimeout,1);
-					if (process.state == 'play') me.play();
-				}, conf.nullDataWait * 1000);
-				 process.timeout.push(nullTimeout);
-			});
-		});
+			}, 
+			function(e) {
+				console.log("====error："+JSON.stringify(e));
+				plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry){
+					console.log("====正在播放宣传片："+conf.promotionalPath);
+					//下载期间则播放公司宣传片
+					//如果不存在则播放公司宣传片(按实际播放时长)
+					plus.io.getVideoInfo({
+						filePath: conf.promotionalPath,
+						success: function(infor){
+							//infor: {resolution:"1280*720",width:"1280",height:"720",size:84758721,duration:"241.80"}
+							obj.style.src = entry.toRemoteURL();
+							me.playStart(obj.style);
+							var promotionalTimeout = setTimeout(function() {
+								clearTimeout(promotionalTimeout);
+								process.timeout.remove(promotionalTimeout,1);
+								process.task_list();
+							//}, infor.duration * 1000);
+							}, 10 * 1000);
+							process.timeout.push(promotionalTimeout);
+						}
+					});
+				}, function(e) {
+					//当宣传片都没有，就只能停下来了。但停下来
+					//alert("宣传片都没有，就只能停下来了"+ conf.promotionalPath);
+					player.self.stop();
+					var nullTimeout = setTimeout(function() {
+						clearTimeout(nullTimeout);
+						process.timeout.remove(nullTimeout,1);
+						if (process.state == 'play') me.play();
+					}, conf.nullDataWait * 1000);
+					 process.timeout.push(nullTimeout);
+				});
+			}
+		);
 	}
 	
 	this.playStart = function(options){
@@ -686,19 +691,39 @@ var img = function() {
 	this.num = 0;
 	this.play = function() {
 		var obj = me.lists;
-		//视频播放列表
+		//图片播放列表
 		var url = obj.list[me.num] ? obj.list[me.num].url : "";
 		if (!url || !url.length) return;
 		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
-		$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
-		var imgTimer = setTimeout(function() {
-			clearTimeout(imgTimer);
-			process.timeout.remove(imgTimer,1);
-			if (process.state == 'play') me.play();
-		}, obj.list[me.num].duration * 1000);
-		process.timeout.push(imgTimer);
-		if (me.num == (obj.list.length - 1)) return me.num = 0;
-		me.num++;
+		var localUrl = server.localUrl(url);
+		var rurl = conf.downloadOption.filename + localUrl;
+		plus.io.resolveLocalFileSystemURL(rurl, 
+			function(entry) {
+				var absUrl = plus.io.convertLocalFileSystemURL(rurl);
+				console.log("====本地图片："+absUrl);
+				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', "file://" + absUrl);
+				var imgTimer = setTimeout(function() {
+					clearTimeout(imgTimer);
+					process.timeout.remove(imgTimer,1);
+					if (process.state == 'play') me.play();
+				}, obj.list[me.num].duration * 1000);
+				process.timeout.push(imgTimer);
+				if (me.num == (obj.list.length - 1)) return me.num = 0;
+				me.num++;
+			},
+			function(e){
+				console.log("====远程图片："+url+JSON.stringify(e));
+				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
+				var imgTimer = setTimeout(function() {
+					clearTimeout(imgTimer);
+					process.timeout.remove(imgTimer,1);
+					if (process.state == 'play') me.play();
+				}, obj.list[me.num].duration * 1000);
+				process.timeout.push(imgTimer);
+				if (me.num == (obj.list.length - 1)) return me.num = 0;
+				me.num++;
+			}
+		);
 	}
 }
 
