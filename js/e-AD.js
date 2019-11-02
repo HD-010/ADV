@@ -16,6 +16,11 @@ var conf = {
 		timeout: 120,
 		retry: 59,
 		retryInterval: 30
+	},
+	taskManage: {
+		//srcRoot: "_www/e-AD/",	//数据包存放的位置
+		srcRoot: "/storage/emulated/0/e-AD/",	//数据包存放的位置
+		targetRoot: "_documents/"	//任务数据存放的位置
 	}
 }
 
@@ -221,12 +226,10 @@ var download = {
 	},
 	// 监听下载任务状态
 	stateChanged: function(downloadObj, status) {
-		//下载的文件大小，则
+		//下载的文件太小53B，则不下载
 		if(downloadObj.state == 3  && status == 200){
-			//console.log("已下载：" + downloadObj.filename + parseFloat(downloadObj.downloadedSize)/parseFloat(downloadObj.totalSize)*100 + '%' );
-			if(downloadObj.totalSize < 50) {
-				downloadObj.abort();
-			}
+			//console.log("正在下载：" + downloadObj.filename + parseFloat(downloadObj.downloadedSize)/parseFloat(downloadObj.totalSize)*100 + '%' );
+			if(downloadObj.totalSize < 500) downloadObj.abort();
 		}
 		// 下载完成, 清除缓存文件
 		if (downloadObj.state == 4 && status == 200) {
@@ -526,6 +529,19 @@ var process = {
 			process.persistent = false;
 			process.task_list();
 		}
+	},
+	
+	//切换任务列表
+	//implement 执行对象
+	//type 任务类型
+	cutoverTask: function(implement, type){
+		if(!(process.type.indexOf(type) + 1)){
+			if (implement.num < implement.lists.list.length) {
+				if(process.state == 'play') implement.play();
+			}else{
+				if(!process.persistent) process.task_list();
+			}
+		}
 	}
 };
 
@@ -549,13 +565,14 @@ var notice = function() {
 			clearTimeout(noticeTimer);
 			process.timeout.remove(noticeTimer,1)
 			//如果没有视频，则由notice决定切换任务
-			if(!(process.type.indexOf('video') + 1)){
-				if (me.num < obj.list.length) {
-					if(process.state == 'play') me.play();
-				}else{
-					if(!process.persistent) process.task_list();
-				}
-			}
+			// if(!(process.type.indexOf('video') + 1)){
+			// 	if (me.num < obj.list.length) {
+			// 		if(process.state == 'play') me.play();
+			// 	}else{
+			// 		if(!process.persistent) process.task_list();
+			// 	}
+			// }替换为：
+			process.cutoverTask(me, 'video');
 			//if (process.state == 'play') me.play();
 		}, obj.list[me.num].duration * 1000);
 		process.timeout.push(noticeTimer);
@@ -700,6 +717,120 @@ var video = function() {
 	}
 }
 
+var taskManage = {
+	ps: 0,
+	// 重启当前的应用
+	restartApp: function() {
+		console.log("========正在重启===========");
+		plus.runtime.restart();
+	},
+	
+	//复制完成
+	copyEO: function(){
+		alert("数据传输完成，拔出U盘将重启系统！");
+	},
+
+	//读取任务列表，任务列表是一个多任务的json配置文件
+	//将任务列表中的任务读取并储存到本地缓存中供调用
+	readTask: function(){
+		//源绝对路径
+		var srcPath =  plus.io.convertLocalFileSystemURL(conf.taskManage.srcRoot);
+		//alert(srcPath);
+		plus.io.resolveLocalFileSystemURL(srcPath, function( entry ) {
+			var directoryReader = entry.createReader();
+			directoryReader.readEntries( function( entries ){
+				var i,
+				task = {};
+				taskManage.ps += entries.length;
+				for( i=0; i < entries.length; i++ ) {
+					//读取文件内容
+					if(entries[i].isFile) taskManage.readFile(entries[i]);
+					//拷贝子目录
+					if(entries[i].isDirectory){
+						taskManage.ps --;
+						var subDirectoryReader = entries[i].createReader();
+						subDirectoryReader.readEntries(function(entries){
+							taskManage.removeRecursively(function(){
+								var i,
+								task = {};
+								taskManage.eOData = entries.length - 1;
+								if(taskManage.eOData < 0) taskManage.eOData = 0;
+								taskManage.ps += entries.length;
+								for(i = 0; i < entries.length; i ++){
+									console.log("正正复制" + entries[i].name);
+									taskManage.copyDirecty(entries[i]);
+								}
+							});
+						},function(e){
+							console.log("复制失败：" + e);
+						});
+					}
+				}
+			}, function ( e ) {
+				console.log( "Read entries failed: " + e.message );
+			});
+		}, function ( e ) {
+			app.notice({error: 0, message: "Resolve file URL failed: " + e.message});
+		});
+	},
+	
+	//清空目标目录
+	removeRecursively: function(successCB){
+		plus.io.resolveLocalFileSystemURL(conf.taskManage.targetRoot, function(entry){
+			//创建documents目录（确保存在）
+			entry.createReader();
+			//清空目标目录
+			entry.removeRecursively(function(){
+				console.log("清空目录成功");
+				successCB();
+			});
+		},function(e){
+			console.log(e)
+		})
+	},
+	
+	//拷贝数据到目录conf.taskManage.targetRoot
+	copyDirecty: function(srcEntry){
+		// copy the directory to a new directory and rename it
+		plus.io.resolveLocalFileSystemURL(conf.taskManage.targetRoot, function(entry){
+			// fs.root是根目录操作对象DirectoryEntry
+			// 创建读取目录信息对象 
+			var directoryReader = entry.createReader();
+			srcEntry.copyTo(entry, srcEntry.name, function(entry){
+				console.log("成功复制" + srcEntry.name);
+				taskManage.ps --;
+				if(!taskManage.ps) taskManage.copyEO();
+			}, function(e){
+				console.log(e);
+			});
+		});
+	},
+	
+	//读取文件内容到任务列表
+	readFile: function(entrie){
+		var reader = null;
+		entrie.file(function(file){
+			reader = new plus.io.FileReader();
+			reader.onloadend = function ( e ) {
+				// Get data
+				try{
+					task = JSON.parse(e.target.result);
+				}catch(e){
+					app.notice({error: 1, message:"读取任务列表失败"})
+				}
+				//console.log("====data:" + JSON.stringify(task));
+				//将任务添加到任务列表
+				process.storTask(task); 
+				taskManage.ps --;
+				if(!taskManage.ps) taskManage.copyEO();
+			}
+			reader.readAsText( file );
+		}, function(e){
+			console.log(JSON.stringify(e))
+		});
+	}
+}
+
 /**
  * 图片任务执行成员
  */
@@ -724,7 +855,16 @@ var img = function() {
 				var imgTimer = setTimeout(function() {
 					clearTimeout(imgTimer);
 					process.timeout.remove(imgTimer,1);
-					if (process.state == 'play') me.play();
+					//如果没有视频，则由notice决定切换任务 
+					// if(!(process.type.indexOf('notice') + 1)){
+					// 	if (me.num < obj.list.length) {
+					// 		if(process.state == 'play') me.play();
+					// 	}else{
+					// 		if(!process.persistent) process.task_list();
+					// 	}
+					// }  替换为：
+					process.cutoverTask(me, 'notice');
+					//if (process.state == 'play') me.play();
 				}, obj.list[me.num].duration * 1000);
 				process.timeout.push(imgTimer);
 				if (me.num == (obj.list.length - 1)) return me.num = 0;
@@ -736,7 +876,16 @@ var img = function() {
 				var imgTimer = setTimeout(function() {
 					clearTimeout(imgTimer);
 					process.timeout.remove(imgTimer,1);
-					if (process.state == 'play') me.play();
+					//如果没有视频，则由notice决定切换任务
+					// if(!(process.type.indexOf('notice') + 1)){
+					// 	if (me.num < obj.list.length) {
+					// 		if(process.state == 'play') me.play();
+					// 	}else{
+					// 		if(!process.persistent) process.task_list();
+					// 	}
+					// }替换为：
+					process.cutoverTask(me, 'notice');
+					//if (process.state == 'play') me.play();
 				}, obj.list[me.num].duration * 1000);
 				process.timeout.push(imgTimer);
 				if (me.num == (obj.list.length - 1)) return me.num = 0;
@@ -750,6 +899,7 @@ var img = function() {
  * H5 plus事件处理
  */
 function plusReady() {
+	test();
 	plus.device.setWakelock(true);
 	//具备离线播放条件的情况下启动进入离线播放
 	process.offlinePlay();
@@ -770,10 +920,12 @@ function plusReady() {
 	//第一次使用，获清空缓存后使用，发起注册请求
 	getItem('unid') ? ws.initWs() : server.init(data);
 	download.startAll();
+	
 }
 
 // 如其名
 function test() {
+	taskManage.readTask();
 	return;
 }
 
