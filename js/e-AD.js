@@ -2,8 +2,8 @@
  * 配置文件
  */
 var conf = {
-	httpHost: "http://192.168.0.114:3005",
-	wsHost: "ws://192.168.0.114:3005",
+	httpHost: "http://192.168.01.114:3005",
+	wsHost: "ws://192.168.1.114:3005",
 	macid: 1,
 	promotionalPath: "_www/video/company/promotional/01.mp4", //宣传片路径
 	promotionalDuration: 10,		//宣传片播放时长
@@ -14,8 +14,8 @@ var conf = {
 		filename: "_documents/",
 		priority: 0,
 		timeout: 120,
-		retry: 59,
-		retryInterval: 30
+		retry: 130,
+		retryInterval: 130
 	},
 	taskManage: {
 		//srcRoot: "_www/e-AD/",	//数据包存放的位置
@@ -202,8 +202,10 @@ var download = {
 		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, 
 			function(entry) {
 				//如果该文件存在，则下载下队列中的下一个文件
-				console.log("===="+conf.downloadOption.filename + localUrl+"文件存在");
+				//console.log("===="+conf.downloadOption.filename + localUrl+"文件存在");
+				//弹出下载队列中的url
 				download.queue.shift();
+				//初始化队列中下一个url的下载任务
 				if(download.queue.length) download.init();
 			},
 			function(e){
@@ -217,10 +219,9 @@ var download = {
 					retry: conf.downloadOption.retry,
 					retryInterval: conf.downloadOption.retryInterval
 				}
-				var task = plus.downloader.createDownload(url, option);
-				task.addEventListener("statechanged", download.stateChanged, false);
-				task.start();
-				download.task.push(task);
+				download.task = plus.downloader.createDownload(url, option);
+				download.task.addEventListener("statechanged", download.stateChanged, false);
+				download.task.start();
 			}
 		);
 	},
@@ -229,7 +230,7 @@ var download = {
 		//下载的文件太小53B，则不下载
 		if(downloadObj.state == 3  && status == 200){
 			//console.log("正在下载：" + downloadObj.filename + parseFloat(downloadObj.downloadedSize)/parseFloat(downloadObj.totalSize)*100 + '%' );
-			if(downloadObj.totalSize < 500) downloadObj.abort();
+			if(downloadObj.totalSize < 100) downloadObj.abort();
 		}
 		// 下载完成, 清除缓存文件
 		if (downloadObj.state == 4 && status == 200) {
@@ -244,11 +245,11 @@ var download = {
 	},
 	// 取消下载任务 
 	abort: function() {
-		download.dtask.abort();
+		download.task.abort();
 	},
 	// 恢复下载任务
 	resume: function() {
-		download.dtask.resume();
+		download.task.resume();
 	},
 	// 开始所有下载任务
 	startAll: function() {
@@ -403,8 +404,10 @@ var process = {
 		officialTask;
 		var currentTime = (new Date()).valueOf();
 		for(var i = taskList.length - 1; i > -1; i --){
-			var endTime = taskList[i].endTime;
-			var startTime = taskList[i].startTime;
+			var endTime = taskList[i].endTime,
+			startTime = taskList[i].startTime,
+			playStart = currentTime.toLocaleDateString + ' ' + taskList[i].playStart;
+			playDone = currentTime.toLocaleDateString + ' ' + taskList[i].playDone;
 			if(!reserveTask){
 				//如果有多个备用任务表，取最后一个
 				if(!endTime) reserveTask = taskList[i];
@@ -412,7 +415,11 @@ var process = {
 			if(!officialTask) {
 				startTime = (new Date(startTime)).valueOf();
 				endTime = (new Date(endTime)).valueOf();
-				if((currentTime >= startTime) && (currentTime < endTime)) {
+				playStart =  (new Date(playStart)).valueOf();
+				playDone =  (new Date(playDone)).valueOf();
+				if(((currentTime >= startTime) && (currentTime < endTime)) &&
+					((currentTime >= playStart) && (currentTime < playDone))
+				) {
 					//如果有多个有效任务表，取最后一个
 					officialTask = taskList[i];
 				}
@@ -549,7 +556,7 @@ var process = {
  * 消息任务执行成员
  */
 var notice = function() {
-	console.log("===========type:" +JSON.stringify(process.type));
+	//console.log("===========type:" +JSON.stringify(process.type));
 	var me = this;
 	this.lists = {};
 	//节目序号
@@ -565,14 +572,15 @@ var notice = function() {
 			clearTimeout(noticeTimer);
 			process.timeout.remove(noticeTimer,1)
 			//如果没有视频，则由notice决定切换任务
-			// if(!(process.type.indexOf('video') + 1)){
-			// 	if (me.num < obj.list.length) {
-			// 		if(process.state == 'play') me.play();
-			// 	}else{
-			// 		if(!process.persistent) process.task_list();
-			// 	}
-			// }替换为：
-			process.cutoverTask(me, 'video');
+			if(!(process.type.indexOf('video') + 1)){
+				if (me.num < obj.list.length) {
+					if(process.state == 'play') me.play();
+				}else{
+					if(!process.persistent) process.task_list();
+				}
+			}
+			//替换为：
+			//process.cutoverTask(me, 'video');
 			//if (process.state == 'play') me.play();
 		}, obj.list[me.num].duration * 1000);
 		process.timeout.push(noticeTimer);
@@ -647,18 +655,19 @@ var video = function() {
 		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
 		//alert("正在播放视频url："+url);
 		var localUrl = server.localUrl(url);
-		console.log("====正在播放："+conf.downloadOption.filename + localUrl);
+		//console.log("====正在播放："+conf.downloadOption.filename + localUrl);
 		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, 
 			function(entry) {
-				console.log("====fool本地:" + localUrl);
+				//console.log("====fool本地:" + localUrl);
 				//存在则进行播放 
 				plus.io.getVideoInfo({
-					filePath: conf.promotionalPath,
+					filePath: conf.downloadOption.filename + localUrl,
 					success: function(infor){
 						//infor: {resolution:"1280*720",width:"1280",height:"720",size:84758721,duration:"241.80"}
 						//如果没有指定广告的播放时长，则以视频的实际播放时长进行播放
 						var duration = obj.list[me.num].duration || infor.duration;
 						obj.style.src = entry.toRemoteURL();
+				
 						me.playStart(obj.style);
 						var videoTimer = setTimeout(function() {
 							clearTimeout(videoTimer);
@@ -673,12 +682,15 @@ var video = function() {
 						if ((me.num == (obj.list.length-1)) && process.persistent) return me.num = 0;
 						me.num++;
 					},
+					function(e){
+						
+					}
 				});
 			}, 
 			function(e) {
 				console.log("====error："+JSON.stringify(e));
 				plus.io.resolveLocalFileSystemURL(conf.promotionalPath, function(entry){
-					console.log("====正在播放宣传片："+conf.promotionalPath);
+					//console.log("====正在播放宣传片："+conf.promotionalPath);
 					//下载期间则播放公司宣传片
 					//如果不存在则播放公司宣传片(按实际播放时长)
 					plus.io.getVideoInfo({
@@ -717,7 +729,78 @@ var video = function() {
 	}
 }
 
+/**
+ * 图片任务执行成员
+ */
+var img = function() {
+	var me = this;
+	this.lists = {};
+	//节目序号
+	this.num = 0;
+	this.play = function() {
+		var obj = me.lists;
+		//图片播放列表
+		var url = obj.list[me.num] ? obj.list[me.num].url : "";
+		if (!url || !url.length) return;
+		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
+		var localUrl = server.localUrl(url);
+		var rurl = conf.downloadOption.filename + localUrl;
+		plus.io.resolveLocalFileSystemURL(rurl, 
+			function(entry) {
+				var absUrl = plus.io.convertLocalFileSystemURL(rurl);
+				//console.log("====本地图片："+absUrl);
+				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', "file://" + absUrl);
+				var imgTimer = setTimeout(function() {
+					clearTimeout(imgTimer);
+					process.timeout.remove(imgTimer,1);
+					//如果没有视频，则由notice决定切换任务 
+					if(!(process.type.indexOf('notice') + 1)){
+						if (me.num < obj.list.length) {
+							if(process.state == 'play') me.play();
+						}else{
+							if(!process.persistent) process.task_list();
+						}
+					}  
+					//替换为：
+					//process.cutoverTask(me, 'notice');
+					//if (process.state == 'play') me.play();
+				}, obj.list[me.num].duration * 1000);
+				process.timeout.push(imgTimer);
+				if (me.num == (obj.list.length - 1)) return me.num = 0;
+				me.num++;
+			},
+			function(e){
+				//console.log("====远程图片："+url+JSON.stringify(e));
+				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
+				var imgTimer = setTimeout(function() {
+					clearTimeout(imgTimer);
+					process.timeout.remove(imgTimer,1);
+					//如果没有视频，则由notice决定切换任务
+					if(!(process.type.indexOf('notice') + 1)){
+						if (me.num < obj.list.length) {
+							if(process.state == 'play') me.play();
+						}else{
+							if(!process.persistent) process.task_list();
+						}
+					}
+					// 替换为：
+					// process.cutoverTask(me, 'notice');
+					//if (process.state == 'play') me.play();
+				}, obj.list[me.num].duration * 1000);
+				process.timeout.push(imgTimer);
+				if (me.num == (obj.list.length - 1)) return me.num = 0;
+				me.num++;
+			}
+		);
+	}
+}
+
+/**
+ * 离线任务管理
+ */
 var taskManage = {
+	//任务执行状态 没执行为 false, 执行过为 true
+	state: false,
 	ps: 0,
 	// 重启当前的应用
 	restartApp: function() {
@@ -727,6 +810,7 @@ var taskManage = {
 	
 	//复制完成
 	copyEO: function(){
+		taskManage.state = true;
 		alert("数据传输完成，拔出U盘将重启系统！");
 	},
 
@@ -831,67 +915,29 @@ var taskManage = {
 	}
 }
 
-/**
- * 图片任务执行成员
- */
-var img = function() {
-	var me = this;
-	this.lists = {};
-	//节目序号
-	this.num = 0;
-	this.play = function() {
-		var obj = me.lists;
-		//图片播放列表
-		var url = obj.list[me.num] ? obj.list[me.num].url : "";
-		if (!url || !url.length) return;
-		if (!url.match(/(http:)|(https:)/)) url = server.host + url;
-		var localUrl = server.localUrl(url);
-		var rurl = conf.downloadOption.filename + localUrl;
-		plus.io.resolveLocalFileSystemURL(rurl, 
-			function(entry) {
-				var absUrl = plus.io.convertLocalFileSystemURL(rurl);
-				//console.log("====本地图片："+absUrl);
-				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', "file://" + absUrl);
-				var imgTimer = setTimeout(function() {
-					clearTimeout(imgTimer);
-					process.timeout.remove(imgTimer,1);
-					//如果没有视频，则由notice决定切换任务 
-					// if(!(process.type.indexOf('notice') + 1)){
-					// 	if (me.num < obj.list.length) {
-					// 		if(process.state == 'play') me.play();
-					// 	}else{
-					// 		if(!process.persistent) process.task_list();
-					// 	}
-					// }  替换为：
-					process.cutoverTask(me, 'notice');
-					//if (process.state == 'play') me.play();
-				}, obj.list[me.num].duration * 1000);
-				process.timeout.push(imgTimer);
-				if (me.num == (obj.list.length - 1)) return me.num = 0;
-				me.num++;
-			},
-			function(e){
-				//console.log("====远程图片："+url+JSON.stringify(e));
-				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
-				var imgTimer = setTimeout(function() {
-					clearTimeout(imgTimer);
-					process.timeout.remove(imgTimer,1);
-					//如果没有视频，则由notice决定切换任务
-					// if(!(process.type.indexOf('notice') + 1)){
-					// 	if (me.num < obj.list.length) {
-					// 		if(process.state == 'play') me.play();
-					// 	}else{
-					// 		if(!process.persistent) process.task_list();
-					// 	}
-					// }替换为：
-					process.cutoverTask(me, 'notice');
-					//if (process.state == 'play') me.play();
-				}, obj.list[me.num].duration * 1000);
-				process.timeout.push(imgTimer);
-				if (me.num == (obj.list.length - 1)) return me.num = 0;
-				me.num++;
-			}
-		);
+var intentProcess = function(){
+	var main = plus.android.runtimeMainActivity();    
+	var receiver = plus.android.implements('io.dcloud.feature.internal.reflect.BroadcastReceiver',{onReceive:getReceive});  
+	var IntentFilter = plus.android.importClass('android.content.IntentFilter');  
+	var Intent = plus.android.importClass('android.content.Intent');   
+	var filter= new IntentFilter();  
+	var action="android.hardware.usb.action.USB_STATE";  
+	filter.addAction(action);   
+	main.registerReceiver(receiver, filter);          
+	function getReceive(context,intent){   
+		var type= intent.getAction();  
+		console.log("===========广播事件：" + type);
+		if(type==action){  
+			 var connected=intent.getExtras();   
+			 plus.android.importClass(connected);   
+			 var isusb=connected.getBoolean("connected");  
+			 if(isusb)  
+			 {  
+				 console.log("USB 已连接" + isusb);   
+			 }else{  
+				 console.log("USB 断开连接");   
+			 }   
+		}   
 	}
 }
 
@@ -900,6 +946,9 @@ var img = function() {
  */
 function plusReady() {
 	test();
+	//屏幕常亮
+	//接收广播事件
+	intentProcess();
 	plus.device.setWakelock(true);
 	//具备离线播放条件的情况下启动进入离线播放
 	process.offlinePlay();
@@ -925,7 +974,7 @@ function plusReady() {
 
 // 如其名
 function test() {
-	taskManage.readTask();
+	//taskManage.readTask();
 	return;
 }
 

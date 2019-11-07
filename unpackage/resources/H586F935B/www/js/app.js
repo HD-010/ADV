@@ -325,7 +325,7 @@ var app = {
 					"&" + app.serializeParams();
 				location.href = obj.uri;
 			}
-			if (!obj.uri && ('uri' in obj)) location.reload();
+			if (obj && !obj.uri && ('uri' in obj)) location.reload();
 		}, obj.duration || 2000);
 	},
 
@@ -1448,18 +1448,18 @@ function xhr5() {
 	this.xhr = null;
 	var that = this;
 	this.ajax = function(params) {
-		if (this.xhr) {
+		if (that.xhr) {
 			console.log("xhr请求已创建");
 			return;
 		}
 		if (!params.url) return;
-		this.url = params.url;
-		this.method = params.type || 'GET';
-		this.data = params.data || '';
+		that.url = params.url;
+		that.method = params.type || 'GET';
+		that.data = params.data || {};
 		console.log("创建请求：");
-		this.xhr = new plus.net.XMLHttpRequest();
-		console.log("this is xhr5:::", this.xhr)
-		this.xhr.onreadystatechange = function() {
+		that.xhr = new plus.net.XMLHttpRequest();
+		console.log("this is xhr5:::", that.xhr)
+		that.xhr.onreadystatechange = function() {
 			switch (that.xhr.readyState) {
 				// case 0:
 				// 	console.log("xhr请求已初始化");
@@ -1489,8 +1489,8 @@ function xhr5() {
 		}
 		that.xhr.timeout = params.timeout;
 		that.xhr.open(that.method, that.url);
-		that.xhr.send(that.data);
-
+		that.xhr.setRequestHeader('Content-Type','application/json');
+		that.xhr.send(JSON.stringify(that.data));
 	}
 
 	this.responseHeader = function() {
@@ -1610,21 +1610,38 @@ function getParamsUrl(url, key) {
 }
 
 /**
- * 在数组对象中查找 key2 的值， 条件是：key1 == value
- * 如果 key2 为空则返回 key1 => value 所在的对象
+ * 方法根据key1=>value在array中查找相对的对象，并返回对象(中key2的值),或返回符合条件的所有对象
+ * array array 被查找的多个对象的数组
+ * key1 用于匹配的键
+ * value 用于匹配的键对应的值,格式为：'比较运算符值',如：'>=10'。表示查找value为大于等于10的项，
+ * 可用比较运算符有：>、<、=、<>、>=、<=、!=
+ * key2 string  null | key2  null 返回匹配对象， key2 返回匹配对象中 key2 的值
+ * all boolean true 返回所有匹配的集合，false 返回第一次匹配               
  */
-function array2value(array, key1, value, key2) {
+function array2value(array,key1,value,key2,all) {
 	array = array || [];
-	if (!array.length) return '';
-
-	for (var i = 0; i < array.length; i++) {
-		if (array[i][key1] == value) {
-			return (key2 === undefined) ? array[i] : array[i][key2];
-		}
+    if(!array.length) return '';
+    if(typeof key2 == 'boolean') {
+        all = key2;
+        key2 = undefined;
 	}
-	return '';
+	var temB;
+	var temObj = [];
+	var valStr = value + '';
+	var tag = valStr.match(/(^[!=<>]{1,3})/g);
+	if(tag) value = valStr.substr(tag.length + 1);
+	if(typeof value == 'undefined') value = '';
+	tag = tag ? tag[0] : '==';
+    for(var i = 0; i < array.length; i ++){
+		eval(('temB = (array[i][key1]' + tag  + 'value)'));
+		if(!temB) continue;
+		if(!all) return key2 ? array[i][key2] : array[i];
+		key2 ? 
+		temObj.push(typeof array[i][key2] == 'undefined' ? '' : array[i][key2]) : 
+		temObj.push(array[i] );
+	}
+	return temObj.length ? temObj : '';
 }
-
 /*
 *merge([objA,objB,objC]);
 *结果为：
@@ -1681,8 +1698,8 @@ function treeValue(array, key1, value, key2, all) {
 			if (item[k].constructor.name == 'Array') {
 				var values = treeValue(item[k], key1, value, key2, all);
 				(values.constructor.name == 'Array') ?
-				mergeObj([temObj, values]):
-					temObj = values;
+				temObj = temObj.concat(values):
+				temObj = values;
 			} else {
 				valueIsFunc ?
 				temB = value(array[i][key1]) :

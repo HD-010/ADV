@@ -225,7 +225,7 @@ function ViewData(params){
 					if(that.dev === 'on') that.log(that.results);
 					if(typeof that.error === "function") that.error(that.results);
 				}
-			}
+			};
 			if(typeof plus == 'undefined'){
 				reqData.dataType = "text";
 				reqData.async = that.async;
