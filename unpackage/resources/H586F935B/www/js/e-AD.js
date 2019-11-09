@@ -2,8 +2,8 @@
  * 配置文件
  */
 var conf = {
-	httpHost: "http://192.168.01.114:3005",
-	wsHost: "ws://192.168.1.114:3005",
+	httpHost: "http://192.168.1.102:3005",
+	wsHost: "ws://192.168.1.102:3005",
 	macid: 1,
 	promotionalPath: "_www/video/company/promotional/01.mp4", //宣传片路径
 	promotionalDuration: 10,		//宣传片播放时长
@@ -18,9 +18,10 @@ var conf = {
 		retryInterval: 130
 	},
 	taskManage: {
-		//srcRoot: "_www/e-AD/",	//数据包存放的位置
-		srcRoot: "/storage/emulated/0/e-AD/",	//数据包存放的位置
-		targetRoot: "_documents/"	//任务数据存放的位置
+		//srcRoot: "_www/e-AD/",							//开发测试时数据包存放的位置
+		//srcRoot: "/storage/emulated/0/e-AD/",				//虚拟机测试时数据包存放的位置
+		srcRoot: "/mnt/usb_storage/USB_DISK1/udisk0/e-AD/",	//u盘数据包存放的位置
+		targetRoot: "_documents/"							//任务数据存放的位置
 	}
 }
 
@@ -404,8 +405,10 @@ var process = {
 		officialTask;
 		var currentTime = (new Date()).valueOf();
 		for(var i = taskList.length - 1; i > -1; i --){
-			var endTime = taskList[i].endTime;
-			var startTime = taskList[i].startTime;
+			var endTime = taskList[i].endTime,
+			startTime = taskList[i].startTime,
+			playStart = currentTime.toLocaleDateString + ' ' + taskList[i].playStart;
+			playDone = currentTime.toLocaleDateString + ' ' + taskList[i].playDone;
 			if(!reserveTask){
 				//如果有多个备用任务表，取最后一个
 				if(!endTime) reserveTask = taskList[i];
@@ -413,7 +416,11 @@ var process = {
 			if(!officialTask) {
 				startTime = (new Date(startTime)).valueOf();
 				endTime = (new Date(endTime)).valueOf();
-				if((currentTime >= startTime) && (currentTime < endTime)) {
+				playStart =  (new Date(playStart)).valueOf();
+				playDone =  (new Date(playDone)).valueOf();
+				if(((currentTime >= startTime) && (currentTime < endTime)) &&
+					((currentTime >= playStart) && (currentTime < playDone))
+				) {
 					//如果有多个有效任务表，取最后一个
 					officialTask = taskList[i];
 				}
@@ -667,17 +674,18 @@ var video = function() {
 							clearTimeout(videoTimer);
 							process.timeout.remove(clearTimeout,1);
 							if (me.num < obj.list.length) {
-								if(process.state == 'play') me.play();
+								if(process.state == 'play'){
+									me.play();
+								}
 							}else{
-								if(!process.persistent) process.task_list();
+								if(!process.persistent){
+									process.task_list();
+								}
 							}
 						}, duration * 1000);
 						process.timeout.push(videoTimer);
 						if ((me.num == (obj.list.length-1)) && process.persistent) return me.num = 0;
 						me.num++;
-					},
-					function(e){
-						
 					}
 				});
 			}, 
@@ -810,10 +818,9 @@ var taskManage = {
 
 	//读取任务列表，任务列表是一个多任务的json配置文件
 	//将任务列表中的任务读取并储存到本地缓存中供调用
-	readTask: function(){
+	readTask: function(entry){
 		//源绝对路径
 		var srcPath =  plus.io.convertLocalFileSystemURL(conf.taskManage.srcRoot);
-		//alert(srcPath);
 		plus.io.resolveLocalFileSystemURL(srcPath, function( entry ) {
 			var directoryReader = entry.createReader();
 			directoryReader.readEntries( function( entries ){
@@ -913,24 +920,27 @@ var intentProcess = function(){
 	var main = plus.android.runtimeMainActivity();    
 	var receiver = plus.android.implements('io.dcloud.feature.internal.reflect.BroadcastReceiver',{onReceive:getReceive});  
 	var IntentFilter = plus.android.importClass('android.content.IntentFilter');  
-	var Intent = plus.android.importClass('android.content.Intent');   
+	var Intent = plus.android.importClass('android.content.Intent');   //android.intent.action.MEDIA_REMOVED
 	var filter= new IntentFilter();  
 	var action="android.hardware.usb.action.USB_STATE";  
 	filter.addAction(action);   
 	main.registerReceiver(receiver, filter);          
 	function getReceive(context,intent){   
 		var type= intent.getAction();  
+		alert(type)
 		console.log("===========广播事件：" + type);
 		if(type==action){  
-			 var connected=intent.getExtras();   
-			 plus.android.importClass(connected);   
-			 var isusb=connected.getBoolean("connected");  
-			 if(isusb)  
-			 {  
-				 console.log("USB 已连接" + isusb);   
-			 }else{  
-				 console.log("USB 断开连接");   
-			 }   
+			var connected=intent.getExtras();   
+			plus.android.importClass(connected);   
+			var isusb=connected.getBoolean("connected");  
+			if(isusb)  
+			{  
+				// console.log("USB 已连接" + isusb);   
+				// if(taskManage.state) taskManage.restartApp();
+			}else{  
+				// console.log("USB 断开连接");   
+				// if(taskManage.state) taskManage.restartApp();
+			}   
 		}   
 	}
 }
@@ -941,8 +951,6 @@ var intentProcess = function(){
 function plusReady() {
 	test();
 	//屏幕常亮
-	//接收广播事件
-	intentProcess();
 	plus.device.setWakelock(true);
 	//具备离线播放条件的情况下启动进入离线播放
 	process.offlinePlay();
@@ -968,7 +976,7 @@ function plusReady() {
 
 // 如其名
 function test() {
-	//taskManage.readTask();
+	taskManage.readTask();
 	return;
 }
 

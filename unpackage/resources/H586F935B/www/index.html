@@ -21,9 +21,8 @@
 		<div id="contents"></div>
 		<script type="text/javascript" charset="utf-8">
 			// 判断runtime是否支持5+ API  
-			if (navigator.userAgent.indexOf("Html5Plus") < 0) { //不支持5+ API  
-				app.notice({error:1, message:"不支持5+ API"});
-			} 
+			navigator.userAgent.indexOf("Html5Plus") < 0 ?
+			app.notice({error:1, message:"不支持5+ API"}) :
 			document.addEventListener('plusready', plusReady, false);
 		</script>
 	</body>

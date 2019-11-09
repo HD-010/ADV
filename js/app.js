@@ -474,8 +474,10 @@ var app = {
 		init: function() {
 			app.history.push();
 			window.addEventListener("popstate", function(e) {
-				e.preventDefault();
-				go(e.state.url, 1);
+				try{
+					e.preventDefault();
+					go(e.state.url, 1);
+				}catch(e){}
 			}, true);
 		},
 
@@ -1784,7 +1786,7 @@ function limitPrint(str, len) {
 function unique(arr) {
 	var res = [];
 	for (var i = 0; i < arr.length; i++) {
-		if (!res.includes(arr[i])) { // 如果res新数组包含当前循环item
+		if (!(res.indexOf(arr[i]) + 1)) { // 如果res新数组包含当前循环item
 			res.push(arr[i]);
 		}
 	}
