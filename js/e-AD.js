@@ -20,7 +20,7 @@ var conf = {
 	taskManage: {
 		//srcRoot: "_www/e-AD/",							//开发测试时数据包存放的位置
 		//srcRoot: "/storage/emulated/0/e-AD/",				//虚拟机测试时数据包存放的位置
-		srcRoot: "/mnt/usb_storage/USB_DISK1/udisk0/e-AD/",	//u盘数据包存放的位置
+		srcRoot: "/mnt/usb_storage/USB_DISK1/udisk0/e-AD",	//u盘数据包存放的位置
 		targetRoot: "_documents/"							//任务数据存放的位置
 	}
 }
@@ -168,6 +168,10 @@ var views = {
 	//关机效果
 	shutdown: function() {
 		$("#contents").html(views.blackmodel)
+	},
+	//复制视图
+	copying: function(){
+		$("#contents").html("<b>正在传输数据， 请稍后...</b>")
 	}
 }
 
@@ -421,6 +425,7 @@ var process = {
 				if(((currentTime >= startTime) && (currentTime < endTime)) &&
 					((currentTime >= playStart) && (currentTime < playDone))
 				) {
+				//if((currentTime >= startTime) && (currentTime < endTime)) {
 					//如果有多个有效任务表，取最后一个
 					officialTask = taskList[i];
 				}
@@ -657,6 +662,8 @@ var video = function() {
 		//alert("正在播放视频url："+url);
 		var localUrl = server.localUrl(url);
 		//console.log("====正在播放："+conf.downloadOption.filename + localUrl);
+		console.log("====本地资源绝对路径：" + plus.io.convertLocalFileSystemURL(conf.downloadOption.filename + localUrl));
+		
 		plus.io.resolveLocalFileSystemURL(conf.downloadOption.filename + localUrl, 
 			function(entry) {
 				//console.log("====fool本地:" + localUrl);
@@ -806,18 +813,21 @@ var taskManage = {
 	ps: 0,
 	psId: null,
 	srcPath: null,
+	successCB: null,
 	//初始化
-	init: function(){
+	init: function(failedCB){
+		taskManage.failedCB = failedCB;
 		//源绝对路径
 		taskManage.srcPath = plus.io.convertLocalFileSystemURL(conf.taskManage.srcRoot);
-		taskManage.psId = setInterval(function(){
-			app.notice({error: 0, message: "正在检测U盘"});
-			plus.io.resolveLocalFileSystemURL(taskManage.srcPath, function( entry ) {
-				clearInterval(taskManage.psId);
-				alert("U盘插入");
-				//读取u盘数据
-			})
-		}, 3000);
+		//app.notice({error: 0, message: "正在检测U盘" + taskManage.srcPath});
+		plus.io.resolveLocalFileSystemURL(taskManage.srcPath, function( entry ) {
+			//显示复制视图
+			views.copying();
+			clearInterval(taskManage.psId);
+			app.notice({error: 0, message: "U盘已经插入，正在读取数据..."});
+			//读取u盘数据
+			taskManage.readTask(entry);
+		}, taskManage.failedCB)
 	},
 	// 重启当前的应用
 	restartApp: function() {
@@ -827,18 +837,16 @@ var taskManage = {
 	
 	//复制完成
 	copyEO: function(){
-		taskManage.state = true;
 		alert("数据传输完成，拔出U盘将重启系统！");
 	},
 
 	//读取任务列表，任务列表是一个多任务的json配置文件
 	//将任务列表中的任务读取并储存到本地缓存中供调用
 	readTask: function(entry){
-		//plus.io.resolveLocalFileSystemURL(taskManage.srcPath, function( entry ) {
-			var directoryReader = entry.createReader();
-			directoryReader.readEntries( function( entries ){
-				var i,
-				task = {};
+		var directoryReader = entry.createReader();
+		directoryReader.readEntries(function(entries){
+			taskManage.removeRecursively(function(){
+				var i;
 				taskManage.ps += entries.length;
 				for( i=0; i < entries.length; i++ ) {
 					//读取文件内容
@@ -846,30 +854,14 @@ var taskManage = {
 					//拷贝子目录
 					if(entries[i].isDirectory){
 						taskManage.ps --;
-						var subDirectoryReader = entries[i].createReader();
-						subDirectoryReader.readEntries(function(entries){
-							taskManage.removeRecursively(function(){
-								var i,
-								task = {};
-								taskManage.eOData = entries.length - 1;
-								if(taskManage.eOData < 0) taskManage.eOData = 0;
-								taskManage.ps += entries.length;
-								for(i = 0; i < entries.length; i ++){
-									console.log("正正复制" + entries[i].name);
-									taskManage.copyDirecty(entries[i]);
-								}
-							});
-						},function(e){
-							console.log("复制失败：" + e);
-						});
+						console.log("当前名称：" + entries[i].name);
+						taskManage.copyDirecty(entries[i]);
 					}
 				}
-			}, function ( e ) {
-				console.log( "Read entries failed: " + e.message );
-			});
-		// }, function ( e ) {
-		// 	app.notice({error: 0, message: "Resolve file URL failed: " + e.message});
-		// });
+			})
+		}, function ( e ) {
+			console.log( "Read entries failed: " + e.message );
+		});
 	},
 	
 	//清空目标目录
@@ -896,10 +888,9 @@ var taskManage = {
 			var directoryReader = entry.createReader();
 			srcEntry.copyTo(entry, srcEntry.name, function(entry){
 				console.log("成功复制" + srcEntry.name);
-				taskManage.ps --;
 				if(!taskManage.ps) taskManage.copyEO();
 			}, function(e){
-				console.log(e);
+				console.log(JSON.stringify(e));
 			});
 		});
 	},
@@ -916,7 +907,7 @@ var taskManage = {
 				}catch(e){
 					app.notice({error: 1, message:"读取任务列表失败"})
 				}
-				//console.log("====data:" + JSON.stringify(task));
+				console.log("====data:" + JSON.stringify(task));
 				//将任务添加到任务列表
 				process.storTask(task); 
 				taskManage.ps --;
@@ -929,67 +920,42 @@ var taskManage = {
 	}
 }
 
-var intentProcess = function(){
-	var main = plus.android.runtimeMainActivity();    
-	var receiver = plus.android.implements('io.dcloud.feature.internal.reflect.BroadcastReceiver',{onReceive:getReceive});  
-	var IntentFilter = plus.android.importClass('android.content.IntentFilter');  
-	var Intent = plus.android.importClass('android.content.Intent');   //android.intent.action.MEDIA_REMOVED
-	var filter= new IntentFilter();  
-	var action="android.hardware.usb.action.USB_STATE";  
-	filter.addAction(action);   
-	main.registerReceiver(receiver, filter);          
-	function getReceive(context,intent){   
-		var type= intent.getAction();  
-		alert(type)
-		console.log("===========广播事件：" + type);
-		if(type==action){  
-			var connected=intent.getExtras();   
-			plus.android.importClass(connected);   
-			var isusb=connected.getBoolean("connected");  
-			if(isusb)  
-			{  
-				// console.log("USB 已连接" + isusb);   
-				// if(taskManage.state) taskManage.restartApp();
-			}else{  
-				// console.log("USB 断开连接");   
-				// if(taskManage.state) taskManage.restartApp();
-			}   
-		}   
-	}
-}
+
 
 /**
  * H5 plus事件处理
  */
 function plusReady() {
 	test();
-	//屏幕常亮
-	plus.device.setWakelock(true);
-	//具备离线播放条件的情况下启动进入离线播放
-	process.offlinePlay();
-	//创建服务器连接
-	//流程:客户端启动完成->拿客户端标识到服务端注册->服务器返回注册完成后的客户端对应的数据表id号->
-	//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
-	//在任务执行节点处将执行结果反馈webSocket服务器->webSocket服务将信息体现在设备状态列表
-	var data = {
-		mode: plus.device.model,
-		vendor: plus.device.vendor == 'Unknown',//虚拟环境可能不存在
-		imei: plus.device.imei || 'virtaul',	//虚拟环境可能不存在
-		uuid: plus.device.uuid || 'virtaul',	//虚拟环境可能不存在
-	};
-	if( data.vendor == 'Unknown') data.vendor = 'virtaul';
-	data.macid = conf.macid;
-	data.sn = $.md5(Object.values(data).join(''));
-	views.init();
-	//第一次使用，获清空缓存后使用，发起注册请求
-	getItem('unid') ? ws.initWs() : server.init(data);
-	download.startAll();
-	
+	//检测u盘路径是否存在，如果存就拷贝数据，如果不存在就执行回调函数
+	taskManage.init(function(){
+		//屏幕常亮
+		plus.device.setWakelock(true);
+		//具备离线播放条件的情况下启动进入离线播放
+		process.offlinePlay();
+		//创建服务器连接
+		//流程:客户端启动完成->拿客户端标识到服务端注册->服务器返回注册完成后的客户端对应的数据表id号->
+		//客户端以unid(数据表id)为基准与webSocket服务器建立连接->获取播放任务列表->执行任务->
+		//在任务执行节点处将执行结果反馈webSocket服务器->webSocket服务将信息体现在设备状态列表
+		var data = {
+			mode: plus.device.model,
+			vendor: plus.device.vendor == 'Unknown',//虚拟环境可能不存在
+			imei: plus.device.imei || 'virtaul',	//虚拟环境可能不存在
+			uuid: plus.device.uuid || 'virtaul',	//虚拟环境可能不存在
+		};
+		if( data.vendor == 'Unknown') data.vendor = 'virtaul';
+		data.macid = conf.macid;
+		data.sn = $.md5(Object.values(data).join(''));
+		views.init();
+		//第一次使用，获清空缓存后使用，发起注册请求
+		getItem('unid') ? ws.initWs() : server.init(data);
+		download.startAll();
+	});
 }
 
 // 如其名
 function test() {
-	taskManage.init();
+	
 	return;
 }
 
