@@ -59,11 +59,15 @@ var server = {
 			error: err
 		});
 		
-		function err(){
-			try{
-				//离线播放，则无限次尝试与服务器连接获取数据
-				if (!server.status) server.init(data);
-			}catch(e){}  
+		function err(e){
+			var retry = setTimeout(function(){
+				clearTimeout(retry);
+				try{
+					//离线播放，则无限次尝试与服务器连接获取数据
+					if (!server.status) server.init(data);
+				}catch(e){} 
+			}, 10000);
+			 
 		}
 	},
 	
@@ -111,7 +115,7 @@ var ws = {
 	//收到消息的处理方法
 	onMsg: function(msg) {
 		msg = msg.data;
-		//console.log("============ONMESSAGE==========" + JSON.stringify(msg))
+		console.log("============ONMESSAGE==========" + JSON.stringify(msg))
 		//业务逻辑信息处理.处理方法写到process对象 
 		if (msg.error) return app.notice(msg);
 		msg = JSON.parse(msg);
@@ -465,7 +469,7 @@ var process = {
 	 */
 	task_list: function(data) {
 		data = data || process.readTask(); //优先执行插播任务的任务列表
-		if (!data.list.length) {
+		if (!data || !data.list.length) {
 			return app.notice({
 				error: 1,
 				message: "播放任务为空！"
@@ -508,11 +512,12 @@ var process = {
 	
 	//定时任务调度
 	initNextTask: function(data){
-		if(!data.playDone) return;
+		if(!data.playDone) return false;
 		var curDate = new Date();
 		//任务结束时间
 		var playDone = curDate.toLocaleDateString() + ' ' + data.playDone;
 		playDone = (new Date(playDone)).valueOf();
+		alert(playDone - curDate.valueOf())
 		var psNextTask = 'initNextTask' + setTimeout(function(){
 			clearTimeout(psNextTask);
 			//清空之前的定时任务
