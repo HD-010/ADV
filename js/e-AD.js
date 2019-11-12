@@ -363,12 +363,9 @@ var process = {
 		if (msg.type in process) {
 			//设置当前任务属性
 			process.persistent = msg.persistent;
-			
-		    msg.persistent ? 
-			//循环执行列表任务
-			process[msg.type]():
-			//执行一次性任务
-			process[msg.type](msg);
+		    var data = msg.persistent ? null : msg;
+			//循环执行列表任务或执行插播任务
+			process[msg.type](data);
 			return true;
 		}
 		app.notice({
@@ -409,8 +406,9 @@ var process = {
 		officialTask;
 		var currentTime = (new Date()).valueOf();
 		for(var i = taskList.length - 1; i > -1; i --){
-			var endTime = taskList[i].endTime,
-			startTime = taskList[i].startTime,
+			//永久循环任务的时间是0, 每次都给他赋一个有效的endTime 和startTime
+			var endTime = taskList[i].endTime || (new Date()).toLocaleDateString(),
+			startTime = taskList[i].startTime || (new Date(new Date().valueOf() + 3600000*24)).toLocaleDateString(),
 			playStart = currentTime.toLocaleDateString + ' ' + taskList[i].playStart;
 			playDone = currentTime.toLocaleDateString + ' ' + taskList[i].playDone;
 			if(!reserveTask){
@@ -450,12 +448,12 @@ var process = {
 		for(var i = 0; i > taskList.length; i ++){
 			var endTime = taskList[i].endTime;
 			//保留最后一次下发的永久循环任务endTime： 0
-			if(reserveTask > 1){
+			if(reserveTask > 1 && endTime == 0){
 				taskList.splice(i, 1);
 				reserveTask --;
 			}
 			endTime = (new Date(endTime)).valueOf();
-			if(currentTime > endTime) taskList.splice(i, 1);
+			if(currentTime > endTime && endTime > 0) taskList.splice(i, 1);
 		}
 		setItem("task_list", taskList);
 	},
@@ -479,7 +477,7 @@ var process = {
 		process.tasks = {};
 		//销毁之前的播放器对象
 		player.distruct();
-		//初始化定时器
+		//清空之前的定时任务
 		process.clearTimeout();
 		$("#contents").html('');
 		//设备任务为播放状态
@@ -504,6 +502,24 @@ var process = {
 			process.tasks[lists[i].taskTag].persistent = data.persistent;
 			process.tasks[lists[i].taskTag].play();
 		}
+		//如果是定时任务，则需要执行下一次任务调度
+		process.initNextTask(data);
+	},
+	
+	//定时任务调度
+	initNextTask: function(data){
+		if(!data.playDone) return;
+		var curDate = new Date();
+		//任务结束时间
+		var playDone = curDate.toLocaleDateString() + ' ' + data.playDone;
+		playDone = (new Date(playDone)).valueOf();
+		var psNextTask = 'initNextTask' + setTimeout(function(){
+			clearTimeout(psNextTask);
+			//清空之前的定时任务
+			process.clearTimeout();
+			//初始化播放任务
+			process.task_list();
+		}, playDone - curDate.valueOf());
 	},
 
 	/**
@@ -574,7 +590,7 @@ var notice = function() {
 		var content = obj.list[me.num].content;
 		$('[data-tag=' + obj.taskTag + ']').find('.icon-notice').html(title);
 		$('[data-tag=' + obj.taskTag + ']').find('.noticeText').html(content);
-		var noticeTimer = setTimeout(function() {
+		var noticeTimer = 'noticePlay' + setTimeout(function() {
 			clearTimeout(noticeTimer);
 			process.timeout.remove(noticeTimer,1)
 			//如果没有视频，则由notice决定切换任务
@@ -627,7 +643,7 @@ var video = function() {
 		var duration = obj.list[me.num].duration;
 		obj.style.src = server.host + url;
 		me.playStart(obj.style);
-		var videoTimer = setTimeout(function() {
+		var videoTimer = 'videoIntubatePlay' + setTimeout(function() {
 			clearTimeout(videoTimer);
 			process.timeout.remove(clearTimeout,1);
 			if (me.num < obj.list.length) {
@@ -677,7 +693,7 @@ var video = function() {
 						obj.style.src = entry.toRemoteURL();
 				
 						me.playStart(obj.style);
-						var videoTimer = setTimeout(function() {
+						var videoTimer = 'videoFoolPlay' + setTimeout(function() {
 							clearTimeout(videoTimer);
 							process.timeout.remove(clearTimeout,1);
 							if (me.num < obj.list.length) {
@@ -708,7 +724,7 @@ var video = function() {
 							//infor: {resolution:"1280*720",width:"1280",height:"720",size:84758721,duration:"241.80"}
 							obj.style.src = entry.toRemoteURL();
 							me.playStart(obj.style);
-							var promotionalTimeout = setTimeout(function() {
+							var promotionalTimeout = "videoFoolPlayError" + setTimeout(function() {
 								clearTimeout(promotionalTimeout);
 								process.timeout.remove(promotionalTimeout,1);
 								process.task_list();
@@ -721,7 +737,7 @@ var video = function() {
 					//当宣传片都没有，就只能停下来了。但停下来
 					//alert("宣传片都没有，就只能停下来了"+ conf.promotionalPath);
 					player.self.stop();
-					var nullTimeout = setTimeout(function() {
+					var nullTimeout = "videoNullTimeout" + setTimeout(function() {
 						clearTimeout(nullTimeout);
 						process.timeout.remove(nullTimeout,1);
 						if (process.state == 'play') me.play();
@@ -759,7 +775,7 @@ var img = function() {
 				var absUrl = plus.io.convertLocalFileSystemURL(rurl);
 				//console.log("====本地图片："+absUrl);
 				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', "file://" + absUrl);
-				var imgTimer = setTimeout(function() {
+				var imgTimer = "imgImgTimer" + setTimeout(function() {
 					clearTimeout(imgTimer);
 					process.timeout.remove(imgTimer,1);
 					//如果没有视频，则由notice决定切换任务 
@@ -781,7 +797,7 @@ var img = function() {
 			function(e){
 				//console.log("====远程图片："+url+JSON.stringify(e));
 				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
-				var imgTimer = setTimeout(function() {
+				var imgTimer = "imgTimer" + setTimeout(function() {
 					clearTimeout(imgTimer);
 					process.timeout.remove(imgTimer,1);
 					//如果没有视频，则由notice决定切换任务
