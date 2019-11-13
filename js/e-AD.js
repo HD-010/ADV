@@ -2,8 +2,8 @@
  * 配置文件
  */
 var conf = {
-	httpHost: "http://192.168.1.102:3005",
-	wsHost: "ws://192.168.1.102:3005",
+	httpHost: "http://192.168.0.114:3005",
+	wsHost: "ws://192.168.0.114:3005",
 	macid: 1,
 	promotionalPath: "_www/video/company/promotional/01.mp4", //宣传片路径
 	promotionalDuration: 10,		//宣传片播放时长
@@ -406,35 +406,40 @@ var process = {
 		//取出当前时间在有效期的任务（逆序）
 		//备用任务表
 		var reserveTask, 
-		//正式任务表
-		officialTask;
+		//循环任务表
+		foolTask,
+		//定时任务表
+		timeoutTask;
 		var currentTime = (new Date()).valueOf();
 		for(var i = taskList.length - 1; i > -1; i --){
 			//永久循环任务的时间是0, 每次都给他赋一个有效的endTime 和startTime
-			var endTime = taskList[i].endTime || (new Date()).toLocaleDateString(),
-			startTime = taskList[i].startTime || (new Date(new Date().valueOf() + 3600000*24)).toLocaleDateString(),
+			var endTime = taskList[i].endTime,// || (new Date()).toLocaleDateString(),
+			startTime = taskList[i].startTime,// || (new Date(new Date().valueOf() + 3600000*24)).toLocaleDateString(),
 			playStart = currentTime.toLocaleDateString + ' ' + taskList[i].playStart;
 			playDone = currentTime.toLocaleDateString + ' ' + taskList[i].playDone;
 			if(!reserveTask){
 				//如果有多个备用任务表，取最后一个
 				if(!endTime) reserveTask = taskList[i];
 			}
-			if(!officialTask) {
+			if(!foolTask || !timeoutTask) {
 				startTime = (new Date(startTime)).valueOf();
 				endTime = (new Date(endTime)).valueOf();
 				playStart =  (new Date(playStart)).valueOf();
 				playDone =  (new Date(playDone)).valueOf();
-				if(((currentTime >= startTime) && (currentTime < endTime)) &&
-					((currentTime >= playStart) && (currentTime < playDone))
-				) {
-				//if((currentTime >= startTime) && (currentTime < endTime)) {
-					//如果有多个有效任务表，取最后一个
-					officialTask = taskList[i];
+				if((currentTime >= startTime) && (currentTime < endTime)){
+					if((taskList[i].playStart && taskList[i].playDone) && 
+					((currentTime >= playStart) && (currentTime < playDone))){
+						//如果有多个有效任务表，取最后一个
+						timeoutTask = taskList[i];
+					}else{
+						//如果有多个有效任务表，取最后一个
+						foolTask = taskList[i];
+					}
 				}
 			}
 		}
 		
-		taskList = officialTask || reserveTask;		//执行最后一次下发的任务
+		taskList = timeoutTask || foolTask || reserveTask;		//执行最后一次下发的任务
 		//return taskList.list;
 		return taskList;
 	},
@@ -482,7 +487,9 @@ var process = {
 		//销毁之前的播放器对象
 		player.distruct();
 		//清空之前的定时任务
+		console.log("所有计时器：" + JSON.stringify(process.timeout));
 		process.clearTimeout();
+		console.log("所有计时器：" + JSON.stringify(process.timeout));
 		$("#contents").html('');
 		//设备任务为播放状态
 		process.state = "play";
@@ -517,14 +524,17 @@ var process = {
 		//任务结束时间
 		var playDone = curDate.toLocaleDateString() + ' ' + data.playDone;
 		playDone = (new Date(playDone)).valueOf();
-		alert(playDone - curDate.valueOf())
-		var psNextTask = 'initNextTask' + setTimeout(function(){
+		var delay = playDone - curDate.valueOf();
+		if(delay < 0) return app.notice({error: 0, message: '错误，任务高度延时小于0'});
+		console.log("====任务调度间隔时间" + delay);
+		var psNextTask = setTimeout(function(){
 			clearTimeout(psNextTask);
-			//清空之前的定时任务
-			process.clearTimeout();
+			process.timeout.remove(psNextTask,1);
 			//初始化播放任务
 			process.task_list();
-		}, playDone - curDate.valueOf());
+			console.log("====任务调度完成");
+		}, delay);
+		process.timeout.push(psNextTask);
 	},
 
 	/**
@@ -550,8 +560,9 @@ var process = {
 	clearTimeout: function(){
 		for(var i in process.timeout){
 			clearTimeout(process.timeout[i]);
-			process.timeout.remove(process.timeout[i]);
 		}
+		process.timeout = [];
+		//process.timeout.remove(process.timeout[i]);
 	},
 	
 	//具备离线播放条件的情况下启动进入离线播放,
@@ -595,26 +606,22 @@ var notice = function() {
 		var content = obj.list[me.num].content;
 		$('[data-tag=' + obj.taskTag + ']').find('.icon-notice').html(title);
 		$('[data-tag=' + obj.taskTag + ']').find('.noticeText').html(content);
-		var noticeTimer = 'noticePlay' + setTimeout(function() {
+		var noticeTimer = setTimeout(function() {
 			clearTimeout(noticeTimer);
 			process.timeout.remove(noticeTimer,1)
 			//如果没有视频，则由notice决定切换任务
-			if(!(process.type.indexOf('video') + 1)){
-				if (me.num < obj.list.length) {
-					if(process.state == 'play') me.play();
-				}else{
-					if(!process.persistent) process.task_list();
-				}
+			if (me.num < obj.list.length) {
+				if(process.state == 'play') me.play();
+			}else{
+				if(!process.persistent && !(process.type.indexOf('video') + 1)){
+					process.task_list();
+				} 
 			}
-			//替换为：
-			//process.cutoverTask(me, 'video');
-			//if (process.state == 'play') me.play();
 		}, obj.list[me.num].duration * 1000);
 		process.timeout.push(noticeTimer);
 		if (me.num == (obj.list.length - 1)) return me.num = 0;
 		me.num++; 
 	}
-
 }
 
 /**
@@ -648,12 +655,13 @@ var video = function() {
 		var duration = obj.list[me.num].duration;
 		obj.style.src = server.host + url;
 		me.playStart(obj.style);
-		var videoTimer = 'videoIntubatePlay' + setTimeout(function() {
+		var videoTimer = setTimeout(function() {
 			clearTimeout(videoTimer);
 			process.timeout.remove(clearTimeout,1);
 			if (me.num < obj.list.length) {
 				if(process.state == 'play') me.play();
 			}else{
+				player.self.stop();
 				if(!process.persistent) process.task_list();
 			}
 		}, duration * 1000);
@@ -698,7 +706,7 @@ var video = function() {
 						obj.style.src = entry.toRemoteURL();
 				
 						me.playStart(obj.style);
-						var videoTimer = 'videoFoolPlay' + setTimeout(function() {
+						var videoTimer = setTimeout(function() {
 							clearTimeout(videoTimer);
 							process.timeout.remove(clearTimeout,1);
 							if (me.num < obj.list.length) {
@@ -729,7 +737,7 @@ var video = function() {
 							//infor: {resolution:"1280*720",width:"1280",height:"720",size:84758721,duration:"241.80"}
 							obj.style.src = entry.toRemoteURL();
 							me.playStart(obj.style);
-							var promotionalTimeout = "videoFoolPlayError" + setTimeout(function() {
+							var promotionalTimeout = setTimeout(function() {
 								clearTimeout(promotionalTimeout);
 								process.timeout.remove(promotionalTimeout,1);
 								process.task_list();
@@ -742,7 +750,7 @@ var video = function() {
 					//当宣传片都没有，就只能停下来了。但停下来
 					//alert("宣传片都没有，就只能停下来了"+ conf.promotionalPath);
 					player.self.stop();
-					var nullTimeout = "videoNullTimeout" + setTimeout(function() {
+					var nullTimeout = setTimeout(function() {
 						clearTimeout(nullTimeout);
 						process.timeout.remove(nullTimeout,1);
 						if (process.state == 'play') me.play();
@@ -778,22 +786,19 @@ var img = function() {
 		plus.io.resolveLocalFileSystemURL(rurl, 
 			function(entry) {
 				var absUrl = plus.io.convertLocalFileSystemURL(rurl);
-				//console.log("====本地图片："+absUrl);
+				// console.log("====本地图片："+absUrl);
 				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', "file://" + absUrl);
-				var imgTimer = "imgImgTimer" + setTimeout(function() {
+				var imgTimer = setTimeout(function() {
 					clearTimeout(imgTimer);
 					process.timeout.remove(imgTimer,1);
 					//如果没有视频，则由notice决定切换任务 
-					if(!(process.type.indexOf('notice') + 1)){
-						if (me.num < obj.list.length) {
-							if(process.state == 'play') me.play();
-						}else{
-							if(!process.persistent) process.task_list();
+					if (me.num < obj.list.length) {
+						if(process.state == 'play') me.play();
+					}else{
+						if(!process.persistent && !(process.type.indexOf('notice') + 1)){
+							process.task_list();
 						}
-					}  
-					//替换为：
-					//process.cutoverTask(me, 'notice');
-					//if (process.state == 'play') me.play();
+					}
 				}, obj.list[me.num].duration * 1000);
 				process.timeout.push(imgTimer);
 				if (me.num == (obj.list.length - 1)) return me.num = 0;
@@ -802,20 +807,17 @@ var img = function() {
 			function(e){
 				//console.log("====远程图片："+url+JSON.stringify(e));
 				$('[data-tag=' + obj.taskTag + ']').find('img').attr('src', url);
-				var imgTimer = "imgTimer" + setTimeout(function() {
+				var imgTimer = setTimeout(function() {
 					clearTimeout(imgTimer);
 					process.timeout.remove(imgTimer,1);
 					//如果没有视频，则由notice决定切换任务
-					if(!(process.type.indexOf('notice') + 1)){
-						if (me.num < obj.list.length) {
-							if(process.state == 'play') me.play();
-						}else{
-							if(!process.persistent) process.task_list();
+					if (me.num < obj.list.length) {
+						if(process.state == 'play') me.play();
+					}else{
+						if(!process.persistent && !(process.type.indexOf('notice') + 1)) {
+							process.task_list();
 						}
 					}
-					// 替换为：
-					// process.cutoverTask(me, 'notice');
-					//if (process.state == 'play') me.play();
 				}, obj.list[me.num].duration * 1000);
 				process.timeout.push(imgTimer);
 				if (me.num == (obj.list.length - 1)) return me.num = 0;
